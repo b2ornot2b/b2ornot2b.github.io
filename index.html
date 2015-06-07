@@ -28,9 +28,17 @@ limitations under the License.
         location.protocol = 'https:';
       }
     </script>
+    <script src="wtf-webrtc.js"></script>
+    <script src="main.js"></script>
   </head>
 
   <body>
+
+  <textarea id="offer">
+
+  </textarea>
+  <button onclick="offerClicked">Submit</button>
+
     <p>
       <code>chrome://inspect/#service-workers</code>
       <code><a href="service-worker.js">service-worker.js</a></code>
