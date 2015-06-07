@@ -1,6 +1,6 @@
 
 
-offerClicked (event)->
+offerClicked = (event)->
     console.log 'offerClicked', event
 
     wtfwebrtc = WTFWebRTC()
