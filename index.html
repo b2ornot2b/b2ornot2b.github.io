@@ -17,30 +17,10 @@ limitations under the License.
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-
     <meta name="description" content="Sample of using a service worker to provide a fallback response when a fetch() fails.">
-
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>Service Worker Sample: Fallback Response</title>
-
-    <!-- Add to homescreen for Chrome on Android -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <link rel="icon" sizes="192x192" href="../../images/touch/chrome-touch-icon-192x192.png">
-
-    <!-- Add to homescreen for Safari on iOS -->
-    <meta name="apple-mobile-web-app-title" content="Service Worker Sample: Fallback Response">
-
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <link rel="apple-touch-icon-precomposed" href="../../images/apple-touch-icon-precomposed.png">
-
-    <!-- Tile icon for Win8 (144x144 + tile color) -->
-    <meta name="msapplication-TileImage" content="images/touch/ms-touch-icon-144x144-precomposed.png">
-    <meta name="msapplication-TileColor" content="#3372DF">
-
-    <link rel="icon" href="../../images/favicon.ico">
-
     <script>
       // Service workers require HTTPS (http://goo.gl/lq4gCo). If we're running on a real web server
       // (as opposed to localhost on a custom port, which is whitelisted), then change the protocol to HTTPS.
@@ -48,18 +28,13 @@ limitations under the License.
         location.protocol = 'https:';
       }
     </script>
-
-    <link rel="stylesheet" href="../../styles/main.css">
   </head>
 
   <body>
-    <h1>Service Worker Sample: Fallback Response</h1>
-
     <p>
       <code>chrome://inspect/#service-workers</code>
       <code><a href="service-worker.js">service-worker.js</a></code>
     </p>
-
     <div class="output">
       <p id="status"></p>
 
@@ -69,14 +44,12 @@ limitations under the License.
         <p id="response"></p>
       </div>
     </div>
-
     <script>
       function showRequestButtons() {
         document.querySelector('#valid-api-call').addEventListener('click', function() {
           // This is a valid YouTube API key, and should result in a valid API request.
           makeApiRequest('AIzaSyCr0XVB-Hz1ohPpjvLatdj4qZ5zcSohHsU');
         });
-
         document.querySelector('#invalid-api-call').addEventListener('click', function() {
           // This is an (obviously) invalid YouTube API key, and should result in an invalid API request.
           makeApiRequest('INVALID_API_KEY');
@@ -84,7 +57,6 @@ limitations under the License.
 
         document.querySelector('#request-buttons').style.display = 'block';
       }
-
       function makeApiRequest(apiKey) {
         var xhr = new XMLHttpRequest();
         // Use the API key passed in to construct the YouTube API request URL.
@@ -114,7 +86,6 @@ limitations under the License.
           if (navigator.serviceWorker.controller) {
             // If .controller is set, then this page is being actively controlled by the service worker.
             document.querySelector('#status').textContent = 'The service worker is currently handling network operations.';
-
             showRequestButtons();
           } else {
             // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
@@ -143,6 +114,5 @@ limitations under the License.
     worker.port.start();
     worker.port.postMessage("Alyssa");
     </script>
-    <!-- Built with love using Web Starter Kit -->
   </body>
 </html>
