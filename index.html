@@ -1,6 +1,5 @@
 <!doctype html>
 <!--
-Copyright 2014 Google Inc. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -56,36 +55,17 @@ limitations under the License.
   <body>
     <h1>Service Worker Sample: Fallback Response</h1>
 
-    <p>Available in <a href="http://www.chromestatus.com/feature/6561526227927040">Chrome 40+</a></p>
-
     <p>
-      This sample demonstrates basic service worker registration, with the service worker providing fallback
-      responses when specific HTTP requests fail. This is done within the fetch handler of the service worker,
-      and will only work for responses that are not
-      <a href="https://fetch.spec.whatwg.org/#concept-filtered-response-opaque">opaque</a>,
-      since we need to examine the response's HTTP status code.
-    </p>
-
-    <p>
-      Visit <code>chrome://inspect/#service-workers</code> and click on the "inspect" link below
-      the registered service worker to view logging statements for the various actions the
-      <code><a href="service-worker.js">service-worker.js</a></code> script is performing.
+      <code>chrome://inspect/#service-workers</code>
+      <code><a href="service-worker.js">service-worker.js</a></code>
     </p>
 
     <div class="output">
       <p id="status"></p>
 
       <div id="request-buttons" style="display: none">
-        <p>
-          Each of these buttons will trigger a CORS-enabled HTTP request to fetch a list of videos from the YouTube Data
-          API. One button makes a valid request, and the other makes an invalid request that always trigger an error
-          response (due to an invalid API key). The service worker takes care of translating the error response into a
-          valid fallback response, which is treated by the host page exactly like any other valid response.
-        </p>
-
         <button id="valid-api-call">Make Valid Request</button>
         <button id="invalid-api-call">Make Invalid Request</button>
-
         <p id="response"></p>
       </div>
     </div>
@@ -161,11 +141,7 @@ limitations under the License.
         alert(e.data);
     }, false);
     worker.port.start();
-
-    // post a message to the shared web worker
     worker.port.postMessage("Alyssa");
-
-
     </script>
     <!-- Built with love using Web Starter Kit -->
   </body>
