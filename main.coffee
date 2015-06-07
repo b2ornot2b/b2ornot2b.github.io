@@ -3,6 +3,9 @@
 window.offerClicked = (event)->
     console.log 'offerClicked', event
 
+    offerText = document.querySelector('#offer').value
+    console.log 'offerText', offerText
+
     wtfwebrtc = WTFWebRTC()
 
     wtfwebrtc.onConnected = ()->
