@@ -7,7 +7,7 @@ version = '0.0.1';
 log = function() {
   var args;
   args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
-  return console.log.apply(console, ['sw', version].concat(slice.call(args)));
+  return console.log.apply(console, ['sew', version].concat(slice.call(args)));
 };
 
 log('service worker', version);
