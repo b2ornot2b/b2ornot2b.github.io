@@ -21,7 +21,10 @@ current_caches = {
 };
 
 self.addEventListener('install', function(event) {
-  return log('install', event);
+  log('install', event);
+  return caches.open(current_caches.psl).then(function(cache) {
+    console.log('got cache', cache);
+  });
 });
 
 self.addEventListener('activate', function(event) {

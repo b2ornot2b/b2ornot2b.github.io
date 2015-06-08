@@ -3,8 +3,8 @@
 
 window.sworker = (msg)->
     new Promise (resolve, reject)->
-        console.log 'promise'
         channel = new MessageChannel()
+        console.log 'promise'
         channel.port1.onmessage = (event)->
             console.log 'onmessage', event
             if event.data.error

@@ -2,8 +2,8 @@
 window.sworker = function(msg) {
   return new Promise(function(resolve, reject) {
     var channel;
-    console.log('promise');
     channel = new MessageChannel();
+    console.log('promise');
     channel.port1.onmessage = function(event) {
       console.log('onmessage', event);
       if (event.data.error) {

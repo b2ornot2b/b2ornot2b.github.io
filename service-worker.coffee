@@ -13,10 +13,12 @@ current_caches =
 
 self.addEventListener 'install', (event)->
     log 'install', event
+    caches.open(current_caches.psl).then (cache)->
+        console.log 'got cache', cache
+        return 
 
 self.addEventListener 'activate', (event)->
     log 'activate', event
-    #pslcache = caches.open current_caches.psl
 
 self.addEventListener 'fetch', (event)->
     url = event.request.url
