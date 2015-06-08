@@ -6,16 +6,17 @@ window.offerClicked = (event)->
     offerText = document.querySelector('#offer').value
     console.log 'offerText', offerText
 
-    peer = new Peer
-        key: 'lwjd5qra8257b9'
 
-    peer.on 'open', (id)->
-        console.log 'PeerID:', id
+    rtc = RTC
+        room: 'b2ornot2b'
+        signaller: 'https://switchboard.rtc.io'
+        capture: false
+    rtc.on 'ready', (session)->
+        session.createDataChannel 'chat',
+            ordered: true
+            maxRetransmits: 12
+        session.on 'channel:opened:chat', (id, channel, attributes, connection)->
+            console.log 'channel:opened:chat', id, channel, attributes, connection
+            channel.onmessage = (event)->
+                console.log 'msg: ', event.data
 
-        conn = peer.connect 'b2ornot2b'
-        conn.on 'open', ()->
-            console.log 'open.'
-            conn.on 'data', (data)->
-                console.log 'Data:', data
-
-            conn.send offerText
