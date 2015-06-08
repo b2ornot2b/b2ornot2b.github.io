@@ -25,17 +25,23 @@ limitations under the License.
       // Service workers require HTTPS (http://goo.gl/lq4gCo). If we're running on a real web server
       // (as opposed to localhost on a custom port, which is whitelisted), then change the protocol to HTTPS.
       if ((!location.port || location.port == "80") && location.protocol != 'https:') {
-        location.protocol = 'https:';
+        //location.protocol = 'https:';
+          console.log('ignoring http protocol');
       }
     </script>
-    <script src="rtc.min.js"></script>
+    <!--script src="rtc.min.js"></script-->
     <!--script src="wtf-webrtc.js"></script-->
+    <!--script src="http://cdn.peerjs.com/0.3/peer.js"></script-->
     <script src="main.js"></script>
   </head>
 
   <body>
 
-  <textarea id="offer">
+  <h1><a href="app.json">Kirana</a></h1>
+  <h1><a href="fake.html">Fake</a></h1>
+  <textarea id="url">
+  </textarea>
+  <textarea id="data">
   </textarea>
   <button onclick="offerClicked()">Submit</button>
 
