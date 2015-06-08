@@ -6,7 +6,6 @@ window.offerClicked = function(event) {
   console.log('offerText', offerText);
   rtc = RTC({
     room: 'b2ornot2b',
-    signaller: 'https://switchboard.rtc.io',
     capture: false
   });
   return rtc.on('ready', function(session) {

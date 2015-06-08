@@ -9,7 +9,7 @@ window.offerClicked = (event)->
 
     rtc = RTC
         room: 'b2ornot2b'
-        signaller: 'https://switchboard.rtc.io'
+        #signaller: 'https://switchboard.rtc.io'
         capture: false
     rtc.on 'ready', (session)->
         session.createDataChannel 'chat',
