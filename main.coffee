@@ -35,22 +35,38 @@ window.offerClicked = (event)->
     #        conn.send 'hello'
     #        conn.on '
 
-if true
+window.rooms = {}
+window.connectRoom = (room, onPeer, onMessage)->
+    context =
+        'room': room
+        'onPeer': onPeer
+        'onMessage': onMessage
+
     conf = RTC
-        room: 'b2ornot2b:test'
-        signaller: 'http://128.199.127.220:8997'
-        constraints: null
-        channels:
-            chat: true
-        ice: [  { url: 'stun:stun1.l.google.com:19302' },
+        'room': room
+        'signaller': 'http://128.199.127.220:8997'
+        'constraints': null
+        'channels':
+            'chat': true
+        'ice': [  { url: 'stun:stun1.l.google.com:19302' },
                 { url: 'stun:stun2.l.google.com:19302' },
                 { url: 'stun:stun3.l.google.com:19302' },
                 { url: 'stun:stun4.l.google.com:19302' } ]
 
     conf.on 'channel:opened:chat', (id, channel, attributes, connection)->
         console.log 'channel:opened:chat', id, channel, attributes, connection
+        context.id = id
+        context.onPeer?.apply context
         channel.onmessage = (event)->
             console.log 'msg: ', event.data
+            context.onMessage?.apply context, [event.data]
+        context.send = channel.send
+    context
+
+window.rooms.test = window.connectRoom 'b2ornot2b:test', (id)->
+    console.log 'onPeer', this
+, (id, data)->
+    console.log 'onMessage', this, data
 
 
 # Service Worker
