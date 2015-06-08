@@ -117,7 +117,7 @@ limitations under the License.
     <script>
     var worker = new SharedWorker('jsworker.js');
     worker.port.addEventListener("message", function(e) {
-        alert(e.data);
+        console.log('worker says: ', e.data);
     }, false);
     worker.port.start();
     worker.port.postMessage("Alyssa");
