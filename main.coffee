@@ -6,15 +6,16 @@ window.offerClicked = (event)->
     offerText = document.querySelector('#offer').value
     console.log 'offerText', offerText
 
-    wtfwebrtc = WTFWebRTC()
+    peer = new Peer
+        key: 'lwjd5qra8257b9'
 
-    wtfwebrtc.onConnected = ()->
-        console.log 'wtfwebrtc.onConnected'
+    peer.on 'open', (id)->
+        console.log 'PeerID:', id
 
-        wtfwebrtc.onMessage = (data)->
-            console.log 'wtfwebrtc.onMessage', data
-            fbp.onCtrlIn data
+        conn = peer.connect 'b2ornot2b'
+        conn.on 'open', ()->
+            console.log 'open.'
+            conn.on 'data', (data)->
+                console.log 'Data:', data
 
-    wtfwebrtc.getOffer offerText, ->
-        console.log offerText
-
+            conn.send offerText
