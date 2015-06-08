@@ -1,4 +1,6 @@
 
+#webrtc = WTFWebRTC()
+
 window.sworker = (msg)->
     new Promise (resolve, reject)->
         console.log 'promise'

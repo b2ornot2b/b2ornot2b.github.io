@@ -16,7 +16,7 @@ self.addEventListener 'install', (event)->
 
 self.addEventListener 'activate', (event)->
     log 'activate', event
-    pslcache = caches.open current_caches.psl
+    #pslcache = caches.open current_caches.psl
 
 self.addEventListener 'fetch', (event)->
     url = event.request.url
@@ -26,49 +26,17 @@ self.addEventListener 'fetch', (event)->
         console.log 'Matched ', response
         return response || fetch(event.request)
 
-  
     caches.open(current_caches.psl).then (cache)->
         cache.match(event.request).then (response)->
             console.log 'Matched ', response
             return event.respondWith(response) if typeof response isnt 'undefined'
-
         return
-        if true
-            if true
-                req = event.request.clone()
-                console.log 'req clone: ', req
-                fr = fetch(req).then (response)->
-                    if (!response || response.status != 200 || response.type != 'basic')
-                        return response
-                    return response.json()
-                fr.then (urls)->
-                    console.log 'URLS', urls
-                    cache.addAll(urls)
-                    cache.put('http://localhost:5050/fake.html', new Response('<h1>Fake HTML</h1>'))
-                    return
-
-          #  console.log 'Not in cache'
-          #  if url.indexOf('app.json') isnt -1 # app.json
-          #      req = event.request.clone()
-          #      console.log 'app.json'
-          #      fr = fetch(req).then (response)->
-          #          if (!response || response.status != 200 || response.type != 'basic')
-          #              return response
-          #          return response.json()
-          #      fr.then (urls)->
-          #          console.log 'URLS', urls
-          #          cache.addAll(urls)
-          #          cache.put('http://localhost:5050/fake.html', new Response('<h1>Fake HTML</h1>'))
-          #          return
-          #  #responseToCache = response.clone()
-            #console.log 'responseToCache', responseToCache
-            #response
-
 
 self.addEventListener 'message', (event)->
     console.log 'message', event.data
 
     caches.open(current_caches.psl).then (cache)->
+        console.log 'cache open', current_caches.psl, cache
         cmd = switch event.data.command
             when 'keys' then ()->
                 log 'keys'

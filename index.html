@@ -37,7 +37,7 @@ limitations under the License.
 
   <body>
 
-  <h1><a href="app.json">Kirana</a></h1>
+  <h1><a href="kirana">Kirana</a></h1>
   <h1><a href="fake.html">Fake</a></h1>
   <textarea id="url">
   </textarea>
@@ -51,56 +51,13 @@ limitations under the License.
     </p>
     <div class="output">
       <p id="status"></p>
-
-      <div id="request-buttons" style="display: none">
-        <button id="valid-api-call">Make Valid Request</button>
-        <button id="invalid-api-call">Make Invalid Request</button>
-        <p id="response"></p>
-      </div>
     </div>
     <script>
-      function showRequestButtons() {
-        document.querySelector('#valid-api-call').addEventListener('click', function() {
-          // This is a valid YouTube API key, and should result in a valid API request.
-          makeApiRequest('AIzaSyCr0XVB-Hz1ohPpjvLatdj4qZ5zcSohHsU');
-        });
-        document.querySelector('#invalid-api-call').addEventListener('click', function() {
-          // This is an (obviously) invalid YouTube API key, and should result in an invalid API request.
-          makeApiRequest('INVALID_API_KEY');
-        });
-
-        document.querySelector('#request-buttons').style.display = 'block';
-      }
-      function makeApiRequest(apiKey) {
-        var xhr = new XMLHttpRequest();
-        // Use the API key passed in to construct the YouTube API request URL.
-        xhr.open('GET', 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=3&' +
-          'playlistId=UU_x5XG1OV2P6uZZ5FSM9Ttw&key=' + apiKey);
-
-        xhr.addEventListener('load', function() {
-          // The controlling service worker's fetch handler intercepts this XHR and will automatically translate a
-          // failed API request into a successful response using static fallback data. So regardless of whether
-          // the original HTTP request returned an error or not, this 'load' response handler will be invoked with
-          // a successful response.
-          var response = JSON.parse(xhr.response);
-          console.log('Response is', response);
-
-          var titles = response.items.map(function(item) {
-            return '"' + item.snippet.title + '"';
-          }).join(', ');
-
-          document.querySelector('#response').textContent = 'The three most recent videos in the channel are: ' + titles;
-        });
-
-        xhr.send();
-      }
-
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('service-worker.js', {scope: './'}).then(function() {
           if (navigator.serviceWorker.controller) {
             // If .controller is set, then this page is being actively controlled by the service worker.
             document.querySelector('#status').textContent = 'The service worker is currently handling network operations.';
-            showRequestButtons();
           } else {
             // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
             // control. Until that happens, the service worker's fetch handler won't be used.

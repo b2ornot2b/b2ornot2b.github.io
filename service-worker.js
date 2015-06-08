@@ -25,9 +25,7 @@ self.addEventListener('install', function(event) {
 });
 
 self.addEventListener('activate', function(event) {
-  var pslcache;
-  log('activate', event);
-  return pslcache = caches.open(current_caches.psl);
+  return log('activate', event);
 });
 
 self.addEventListener('fetch', function(event) {
@@ -39,31 +37,12 @@ self.addEventListener('fetch', function(event) {
     return response || fetch(event.request);
   }));
   return caches.open(current_caches.psl).then(function(cache) {
-    var fr, req;
     cache.match(event.request).then(function(response) {
       console.log('Matched ', response);
       if (typeof response !== 'undefined') {
         return event.respondWith(response);
       }
     });
-    return;
-    if (true) {
-      if (true) {
-        req = event.request.clone();
-        console.log('req clone: ', req);
-        fr = fetch(req).then(function(response) {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          return response.json();
-        });
-        return fr.then(function(urls) {
-          console.log('URLS', urls);
-          cache.addAll(urls);
-          cache.put('http://localhost:5050/fake.html', new Response('<h1>Fake HTML</h1>'));
-        });
-      }
-    }
   });
 });
 
@@ -71,6 +50,7 @@ self.addEventListener('message', function(event) {
   console.log('message', event.data);
   return caches.open(current_caches.psl).then(function(cache) {
     var cmd;
+    console.log('cache open', current_caches.psl, cache);
     cmd = (function() {
       switch (event.data.command) {
         case 'keys':
