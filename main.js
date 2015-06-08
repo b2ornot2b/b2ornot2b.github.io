@@ -6,6 +6,7 @@ window.offerClicked = function(event) {
   console.log('offerText', offerText);
   rtc = RTC({
     room: 'b2ornot2b',
+    signaller: 'http://10.10.0.13:8997',
     capture: false
   });
   return rtc.on('ready', function(session) {

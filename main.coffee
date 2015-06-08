@@ -9,6 +9,7 @@ window.offerClicked = (event)->
 
     rtc = RTC
         room: 'b2ornot2b'
+        signaller: 'http://10.10.0.13:8997'
         #signaller: 'https://switchboard.rtc.io'
         capture: false
     rtc.on 'ready', (session)->
