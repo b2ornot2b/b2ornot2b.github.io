@@ -17,7 +17,7 @@ window.sworker = function(msg) {
 };
 
 window.offerClicked = function(event) {
-  var content, url;
+  var conf, content, url;
   console.log('offerClicked', event);
   url = document.querySelector('#url').value.trim();
   content = document.querySelector('#data').value.trim();
@@ -29,7 +29,7 @@ window.offerClicked = function(event) {
   });
   if (url.length !== 0) {
     console.log(url, data);
-    return window.sworker({
+    window.sworker({
       command: 'add',
       url: url,
       content: content.length === 0 ? null : content
@@ -37,6 +37,31 @@ window.offerClicked = function(event) {
       return console.log('add', url, content, data);
     });
   }
+  conf = RTC({
+    room: 'b2ornot2b:test',
+    signaller: 'http://128.199.127.220:8997',
+    constraints: null,
+    channels: {
+      chat: true
+    },
+    ice: [
+      {
+        url: 'stun:stun1.l.google.com:19302'
+      }, {
+        url: 'stun:stun2.l.google.com:19302'
+      }, {
+        url: 'stun:stun3.l.google.com:19302'
+      }, {
+        url: 'stun:stun4.l.google.com:19302'
+      }
+    ]
+  });
+  return conf.on('channel:opened:chat', function(id, channel, attributes, connection) {
+    console.log('channel:opened:chat', id, channel, attributes, connection);
+    return channel.onmessage = function(event) {
+      return console.log('msg: ', event.data);
+    };
+  });
 };
 
 //# sourceMappingURL=main.js.map

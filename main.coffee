@@ -47,16 +47,25 @@ window.offerClicked = (event)->
     #        conn.send 'hello'
     #        conn.on '
 
-    #rtc = RTC
-    #    room: 'b2ornot2b'
-    #    signaller: 'https://switchboard.rtc.io'
-    #    capture: false
-    #rtc.on 'ready', (session)->
-    #    session.createDataChannel 'chat',
+    conf = RTC
+        room: 'b2ornot2b:test'
+        #signaller: 'https://switchboard.rtc.io'
+        signaller: 'http://128.199.127.220:8997'
+        constraints: null
+        channels:
+            chat: true
+        ice: [  { url: 'stun:stun1.l.google.com:19302' },
+                { url: 'stun:stun2.l.google.com:19302' },
+                { url: 'stun:stun3.l.google.com:19302' },
+                { url: 'stun:stun4.l.google.com:19302' } ]
+
+
+    #conf.on 'ready', (session)->
+    #confsession.createDataChannel 'chat',
     #        ordered: true
     #        maxRetransmits: 12
-    #    session.on 'channel:opened:chat', (id, channel, attributes, connection)->
-    #        console.log 'channel:opened:chat', id, channel, attributes, connection
-    #        channel.onmessage = (event)->
-    #            console.log 'msg: ', event.data
+    conf.on 'channel:opened:chat', (id, channel, attributes, connection)->
+        console.log 'channel:opened:chat', id, channel, attributes, connection
+        channel.onmessage = (event)->
+            console.log 'msg: ', event.data
 
