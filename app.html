@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="description" content="FX Test.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>FX Test</title>
+    <script>
+      if ((!location.port || location.port == "80") && location.protocol != 'https:') {
+        //location.protocol = 'https:';
+          console.log('ignoring http protocol');
+      }
+    </script>
+    <script src="rtc.min.js"></script>
+    <script src="main.js"></script>
+  </head>
+
+  <body>
+  <h1><a href="kirana">Kirana</a></h1>
+  <h1><a href="fake.html">Fake</a></h1>
+  <textarea id="url">
+  </textarea>
+  <textarea id="data">
+  </textarea>
+  <button onclick="offerClicked()">Submit</button>
+
+    <p>
+      <code>chrome://inspect/#service-workers</code>
+      <code><a href="service-worker.js">service-worker.js</a></code>
+    </p>
+    <div class="output">
+      <p id="status"></p>
+    </div>
+  </body>
+</html>
