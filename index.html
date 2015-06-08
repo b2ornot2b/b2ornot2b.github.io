@@ -1,42 +1,23 @@
 <!doctype html>
-<!--
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-  http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
--->
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="Sample of using a service worker to provide a fallback response when a fetch() fails.">
+    <meta name="description" content="FX Test.">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Service Worker Sample: Fallback Response</title>
+    <title>FX Test</title>
     <script>
-      // Service workers require HTTPS (http://goo.gl/lq4gCo). If we're running on a real web server
-      // (as opposed to localhost on a custom port, which is whitelisted), then change the protocol to HTTPS.
       if ((!location.port || location.port == "80") && location.protocol != 'https:') {
         //location.protocol = 'https:';
           console.log('ignoring http protocol');
       }
     </script>
     <script src="rtc.min.js"></script>
-    <!--script src="wtf-webrtc.js"></script-->
-    <!--script src="http://cdn.peerjs.com/0.3/peer.js"></script-->
     <script src="main.js"></script>
   </head>
 
   <body>
-
   <h1><a href="kirana">Kirana</a></h1>
   <h1><a href="fake.html">Fake</a></h1>
   <textarea id="url">
@@ -52,38 +33,5 @@ limitations under the License.
     <div class="output">
       <p id="status"></p>
     </div>
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('service-worker.js', {scope: './'}).then(function() {
-          if (navigator.serviceWorker.controller) {
-            // If .controller is set, then this page is being actively controlled by the service worker.
-            document.querySelector('#status').textContent = 'The service worker is currently handling network operations.';
-          } else {
-            // If .controller isn't set, then prompt the user to reload the page so that the service worker can take
-            // control. Until that happens, the service worker's fetch handler won't be used.
-            document.querySelector('#status').textContent = 'Please reload this page to allow the service worker to handle network operations.';
-          }
-        }).catch(function(error) {
-          // Something went wrong during registration. The service-worker.js file
-          // might be unavailable or contain a syntax error.
-          document.querySelector('#status').textContent = error;
-        });
-      } else {
-        // The current browser doesn't support service workers.
-        var aElement = document.createElement('a');
-        aElement.href = 'http://www.chromium.org/blink/serviceworker/service-worker-faq';
-        aElement.textContent = 'unavailable';
-        document.querySelector('#status').appendChild(aElement);
-      }
-    </script>
-
-    <script>
-    var worker = new SharedWorker('jsworker.js');
-    worker.port.addEventListener("message", function(e) {
-        console.log('worker says: ', e.data);
-    }, false);
-    worker.port.start();
-    worker.port.postMessage("Alyssa");
-    </script>
   </body>
 </html>

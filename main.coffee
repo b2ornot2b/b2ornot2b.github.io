@@ -1,18 +1,6 @@
 
 #webrtc = WTFWebRTC()
 
-window.sworker = (msg)->
-    new Promise (resolve, reject)->
-        channel = new MessageChannel()
-        console.log 'promise'
-        channel.port1.onmessage = (event)->
-            console.log 'onmessage', event
-            if event.data.error
-                reject event.data.error
-            else
-                resolve event.data
-        navigator.serviceWorker.controller.postMessage(msg, [channel.port2])
-
 window.offerClicked = (event)->
     console.log 'offerClicked', event
 
@@ -47,9 +35,9 @@ window.offerClicked = (event)->
     #        conn.send 'hello'
     #        conn.on '
 
+if true
     conf = RTC
         room: 'b2ornot2b:test'
-        #signaller: 'https://switchboard.rtc.io'
         signaller: 'http://128.199.127.220:8997'
         constraints: null
         channels:
@@ -59,13 +47,46 @@ window.offerClicked = (event)->
                 { url: 'stun:stun3.l.google.com:19302' },
                 { url: 'stun:stun4.l.google.com:19302' } ]
 
-
-    #conf.on 'ready', (session)->
-    #confsession.createDataChannel 'chat',
-    #        ordered: true
-    #        maxRetransmits: 12
     conf.on 'channel:opened:chat', (id, channel, attributes, connection)->
         console.log 'channel:opened:chat', id, channel, attributes, connection
         channel.onmessage = (event)->
             console.log 'msg: ', event.data
 
+
+# Service Worker
+if navigator.serviceWorker
+    n = navigator.serviceWorker.register('service-worker.js', {scope: './'}).then ()->
+        if navigator.serviceWorker.controller
+            console.log 'The service worker is currently handling network operations.'
+        else
+            console.log 'Please reload this page to allow the service worker to handle network operations.'
+            location.reload()
+    n.catch (error)->
+        console.log error
+else
+    console.log 'Service worker unavailable'
+
+window.sendWorker = (msg)->
+    new Promise (resolve, reject)->
+        channel = new MessageChannel()
+        console.log 'promise'
+        channel.port1.onmessage = (event)->
+            console.log 'onmessage', event
+            if event.data.error
+                reject event.data.error
+            else
+                resolve event.data
+        navigator.serviceWorker.controller.postMessage(msg, [channel.port2])
+
+
+window.loadSharedWorker = (name)->
+    worker = new SharedWorker name+'.js'
+    worker.port.addEventListener 'message', (event)->
+        console.log 'SharedWorker ', name, '>>', event.data
+    , false
+    worker.port.start()
+    worker.port.postMessage
+        'command': 'init'
+        'name': name
+
+window.loadSharedWorker 'jsworker'
