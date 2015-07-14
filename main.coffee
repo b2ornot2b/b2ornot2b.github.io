@@ -41,6 +41,21 @@ window.connectRoom = (room, onPeer, onMessage)->
         'room': room
         'onPeer': onPeer
         'onMessage': onMessage
+        peers: []
+
+    context.send = (msg, peerAttrs)->
+      context.peers = (peer for peer in context.peers when peer.channel.readyState isnt 'closed')
+      console.log 'send', context.peers.length
+      for peer in context.peers when peer.channel.readyState is 'open'
+        unless typeof peerAttrs is 'undefined'
+          for k,v of peerAttrs
+            console.log 'send peerAttrs', msg, peer, k, v
+            if peer.meta[k] is v
+              console.log 'sending message', msg, peer
+              peer.channel.send msg
+        else
+          peer.channel.send msg
+
 
     conf = RTC
         'room': room
@@ -55,19 +70,26 @@ window.connectRoom = (room, onPeer, onMessage)->
 
     conf.on 'channel:opened:chat', (id, channel, attributes, connection)->
         console.log 'channel:opened:chat', id, channel, attributes, connection
-        context.id = id
-        context.onPeer?.apply context
-        channel.onmessage = (event)->
-            console.log 'msg: ', event.data
-            context.onMessage?.apply context, [event.data]
-        context.send = channel.send
-        context.channel = channel
+
+        peerInfo =
+          id: id
+          channel: channel
+          browser:
+              name: attributes.browser
+              version: attributes.browserVersion
+          signaller: attributes.signaller
+
+        channel.onmessage = (event)-> context.onMessage event.data, peerInfo
+
+        peerInfo.meta = context.onPeer.apply context
+        context.peers.push peerInfo
+
     context
 
 window.rooms.test = window.connectRoom 'b2ornot2b:test', (id)->
     console.log 'onPeer', this
-, (id, data)->
-    console.log 'onMessage', this, data
+, (msg, peer)->
+    console.log 'onMessage', this, msg, peer
 
 
 # Service Worker

@@ -31,7 +31,51 @@ window.connectRoom = function(room, onPeer, onMessage) {
   context = {
     'room': room,
     'onPeer': onPeer,
-    'onMessage': onMessage
+    'onMessage': onMessage,
+    peers: []
+  };
+  context.send = function(msg, peerAttrs) {
+    var i, k, len, peer, ref, results, v;
+    context.peers = (function() {
+      var i, len, ref, results;
+      ref = context.peers;
+      results = [];
+      for (i = 0, len = ref.length; i < len; i++) {
+        peer = ref[i];
+        if (peer.channel.readyState !== 'closed') {
+          results.push(peer);
+        }
+      }
+      return results;
+    })();
+    console.log('send', context.peers.length);
+    ref = context.peers;
+    results = [];
+    for (i = 0, len = ref.length; i < len; i++) {
+      peer = ref[i];
+      if (peer.channel.readyState === 'open') {
+        if (typeof peerAttrs !== 'undefined') {
+          results.push((function() {
+            var results1;
+            results1 = [];
+            for (k in peerAttrs) {
+              v = peerAttrs[k];
+              console.log('send peerAttrs', msg, peer, k, v);
+              if (peer.meta[k] === v) {
+                console.log('sending message', msg, peer);
+                results1.push(peer.channel.send(msg));
+              } else {
+                results1.push(void 0);
+              }
+            }
+            return results1;
+          })());
+        } else {
+          results.push(peer.channel.send(msg));
+        }
+      }
+    }
+    return results;
   };
   conf = RTC({
     'room': room,
@@ -53,27 +97,30 @@ window.connectRoom = function(room, onPeer, onMessage) {
     ]
   });
   conf.on('channel:opened:chat', function(id, channel, attributes, connection) {
-    var ref;
+    var peerInfo;
     console.log('channel:opened:chat', id, channel, attributes, connection);
-    context.id = id;
-    if ((ref = context.onPeer) != null) {
-      ref.apply(context);
-    }
-    channel.onmessage = function(event) {
-      var ref1;
-      console.log('msg: ', event.data);
-      return (ref1 = context.onMessage) != null ? ref1.apply(context, [event.data]) : void 0;
+    peerInfo = {
+      id: id,
+      channel: channel,
+      browser: {
+        name: attributes.browser,
+        version: attributes.browserVersion
+      },
+      signaller: attributes.signaller
     };
-    context.send = channel.send;
-    return context.channel = channel;
+    channel.onmessage = function(event) {
+      return context.onMessage(event.data, peerInfo);
+    };
+    peerInfo.meta = context.onPeer.apply(context);
+    return context.peers.push(peerInfo);
   });
   return context;
 };
 
 window.rooms.test = window.connectRoom('b2ornot2b:test', function(id) {
   return console.log('onPeer', this);
-}, function(id, data) {
-  return console.log('onMessage', this, data);
+}, function(msg, peer) {
+  return console.log('onMessage', this, msg, peer);
 });
 
 if (navigator.serviceWorker) {
