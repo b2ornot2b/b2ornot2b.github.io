@@ -61,6 +61,7 @@ window.connectRoom = (room, onPeer, onMessage)->
             console.log 'msg: ', event.data
             context.onMessage?.apply context, [event.data]
         context.send = channel.send
+        context.channel = channel
     context
 
 window.rooms.test = window.connectRoom 'b2ornot2b:test', (id)->

@@ -64,7 +64,8 @@ window.connectRoom = function(room, onPeer, onMessage) {
       console.log('msg: ', event.data);
       return (ref1 = context.onMessage) != null ? ref1.apply(context, [event.data]) : void 0;
     };
-    return context.send = channel.send;
+    context.send = channel.send;
+    return context.channel = channel;
   });
   return context;
 };
