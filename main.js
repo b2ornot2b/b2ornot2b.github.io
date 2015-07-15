@@ -36,6 +36,7 @@ window.connectRoom = function(room, onPeer, onMessage) {
   };
   context.send = function(msg, peerAttrs) {
     var i, k, len, peer, ref, results, v;
+    console.log('0 send', context.peers.length);
     context.peers = (function() {
       var i, len, ref, results;
       ref = context.peers;
@@ -48,7 +49,7 @@ window.connectRoom = function(room, onPeer, onMessage) {
       }
       return results;
     })();
-    console.log('send', context.peers.length);
+    console.log('1 send', context.peers.length);
     ref = context.peers;
     results = [];
     for (i = 0, len = ref.length; i < len; i++) {

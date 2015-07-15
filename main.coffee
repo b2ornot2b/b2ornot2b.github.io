@@ -44,8 +44,9 @@ window.connectRoom = (room, onPeer, onMessage)->
         peers: []
 
     context.send = (msg, peerAttrs)->
+      console.log '0 send', context.peers.length
       context.peers = (peer for peer in context.peers when peer.channel.readyState isnt 'closed')
-      console.log 'send', context.peers.length
+      console.log '1 send', context.peers.length
       for peer in context.peers when peer.channel.readyState is 'open'
         unless typeof peerAttrs is 'undefined'
           for k,v of peerAttrs
