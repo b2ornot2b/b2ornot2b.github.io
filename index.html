@@ -851,6 +851,8 @@
     DemoApp.checkInitData();
     DemoApp.init();
 
+    DemoApp.showScanQrPopup();
+
     function setViewportData() {
         document.querySelector('.viewport-border').setAttribute('text', window.innerWidth + ' x ' + round(Telegram.WebApp.viewportHeight, 2))
         document.querySelector('.viewport-stable_border').setAttribute('text', window.innerWidth + ' x ' + round(Telegram.WebApp.viewportStableHeight, 2) +
