@@ -334,6 +334,9 @@
 </head>
 
 <body class="" xstyle="visibility: hidden;">
+    // b2ornot2b
+    <button id="main_btn" onclick="DemoApp.sendMessage('');">Send «Hello, World!»</button>
+    <button id="main_btn" onclick="DemoApp.showScanQrPopup('');">Scan</button>
     <div style="display: none">
 <section id="top_sect" class="second">
     <button id="main_btn" onclick="DemoApp.sendMessage('');">Send «Hello, World!»</button>
@@ -854,7 +857,6 @@
     DemoApp.checkInitData();
     DemoApp.init();
 
-    DemoApp.showScanQrPopup();
 
     function setViewportData() {
         document.querySelector('.viewport-border').setAttribute('text', window.innerWidth + ' x ' + round(Telegram.WebApp.viewportHeight, 2))
