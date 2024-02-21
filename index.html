@@ -333,7 +333,7 @@
     </style>
 </head>
 
-<body class="" style="visibility: hidden;">
+<body class="" xstyle="visibility: hidden;">
     <div style="display: none">
 <section id="top_sect" class="second">
     <button id="main_btn" onclick="DemoApp.sendMessage('');">Send «Hello, World!»</button>
@@ -642,6 +642,7 @@
                     }
                 } else {
     // b2ornot2b
+                    window.parent.postMessage(JSON.stringify({eventType: "qrcode", eventData: text}), "*");
                     Telegram.WebApp.sendData(text);
                     DemoApp.showAlert("sent: " + text);
 
