@@ -641,7 +641,9 @@
                         return true;
                     }
                 } else {
-                    DemoApp.showAlert(text);
+    // b2ornot2b
+                    Telegram.WebApp.sendData(text);
+                    //DemoApp.showAlert(text);
 
                     return true;
                 }
