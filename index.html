@@ -644,9 +644,9 @@
                         }
                     } else {
         // b2ornot2b
-                        window.parent.postMessage(JSON.stringify({eventType: "qrcode", eventData: text}), "*");
+                        // window.parent.postMessage(JSON.stringify({eventType: "qrcode", eventData: text}), "*");
                         Telegram.WebApp.sendData(text);
-                        DemoApp.showAlert("sent: " + text);
+                        // DemoApp.showAlert("sent: " + text);
 
                         return true;
                     }
