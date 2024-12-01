@@ -1,0 +1,187 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Typing Effect</title>
+    <style>
+        body {
+            background-color: black;
+            color: #00FF00;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2em;
+            overflow: auto;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+            transition: background-image 1.5s ease-in-out;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            background-blend-mode: screen;
+            position: relative;
+        }
+        @media (min-width: 768px) {
+            body {
+                font-size: 1.5em;
+            }
+        }
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0) 100%);
+        }
+        #typing {
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+            max-width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+        @keyframes cursorBlink {
+            0%   { border-right-color: #00FF00; }
+            50%  { border-right-color: transparent; }
+            100% { border-right-color: #00FF00; }
+        }
+        .cursor {
+            border-right: 12px solid #00FF00;
+            animation: cursorBlink 1s infinite;
+        }
+        .python-keyword {
+            color: #FF4500;
+            font-weight: bold;
+        }
+        .python-function {
+            color: #FFD700;
+        }
+        .python-string {
+            color: #32CD32;
+        }
+        #offscreen {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+            visibility: hidden;
+        }
+        code {
+            background-color: #00000050;
+        }
+    </style>
+</head>
+<body>
+    <div id="typing"></div>
+    <div id="offscreen"></div>
+    <script>
+        const name = "Hi";
+        const text = `<span style="font-size: 2em;">Wedding Invitation</span>
+
+<code>
+<span class="python-keyword">def</span> <span class="python-function">forever_together</span>(archana, blinston):
+    <span class="python-keyword">return</span> archana + blinston
+
+<span class="python-function">char *name="` + name + `"</span>;
+<span class="python-function">printf</span>(<span class="python-string">"%s... you're Invited to the Marriage of Logic & Flow!"</span>, name);
+
+🧘‍♀️ Archana Raut
+      +
+👨‍💻 Blinston Fernandes
+
+🎉 Join us as we compile our lives into one shared code,  
+   balancing mindfulness and precision coding! 🎉
+
+📅 Date: December 7, 2024  
+⏰ Time: 5:00 PM IST  ( not Indian Stretchable Time )
+📍 Location: 407, Sarzora, Salcette - Goa 🌴 - <a onclick="getLocation()" color="white" >Click here for location</a>
+
+Fun Highlights:
+- Dress Code: Semi-formal attire (yoga poses optional)
+
+RSVP:
+<span class="python-keyword">if</span> attending:
+    <span class="python-function">print</span>(<span class="python-string">"Prepare to celebrate with us: 🎶 🕺 💃"</span>)
+<span class="python-keyword">else</span>:
+    <span class="python-function">print</span>(<span class="python-string">"You’ll be missed! 💔"</span>)
+
+Warmest regards,
+Archana & Blinston
+
+P.S. Debugging life together since 2024! 🐍
+
+
+</code>
+`;
+
+        let index = 0;
+        const typingElement = document.getElementById('typing');
+        const offscreenElement = document.getElementById('offscreen');
+        const backgrounds = [];
+        let currentBackgroundIndex = 0;
+
+        // Load available backgrounds
+        for (let i = 1; i <= 10; i++) {
+            const img = new Image();
+            img.src = `bg0${i}.png.webp`;
+            img.onload = () => {
+                backgrounds.push(img.src);
+                if (backgrounds.length === 1) {
+                    // Set the first background immediately
+                    document.body.style.backgroundImage = `url(${backgrounds[0]})`;
+                }
+            };
+            // Add to the offscreen element to ensure smooth loading
+            offscreenElement.appendChild(img);
+        }
+
+        // Cycle through backgrounds
+        function changeBackground() {
+            if (backgrounds.length > 1) {
+                currentBackgroundIndex = (currentBackgroundIndex + 1) % backgrounds.length;
+                document.body.style.transition = 'background-image 2s ease-in-out';
+                document.body.style.backgroundImage = `url(${backgrounds[currentBackgroundIndex]})`;
+            }
+        }
+
+        // Change background every 10 seconds
+        setInterval(changeBackground, 10000);
+        
+        function typeCharacter() {
+            if (index < text.length) {
+                if (text.slice(index, index + 4) === '<a h') {
+                    // Directly add the link without delay
+                    const endIndex = text.indexOf('</a>', index) + 4;
+                    typingElement.innerHTML = text.slice(0, endIndex) + '<span class="cursor"></span>';
+                    index = endIndex;
+                    setTimeout(typeCharacter, 50); // Small pause before continuing
+                } else {
+                    typingElement.innerHTML = text.slice(0, index) + '<span class="cursor"></span>';
+                    index++;
+                    const delay = Math.random() * (150 - 30) + 30; // Random delay between 30ms and 150ms
+                    setTimeout(typeCharacter, delay); // Adjust typing speed here to make it more human-like
+                }
+            } else {
+                typingElement.innerHTML = text + '<span class="cursor"></span>';
+            }
+        }
+
+        typeCharacter();
+
+
+        function getLocation() { 
+            const uri = "https://www.google.com/maps/@15.2104903,73.9937433,3a,75y,49.22h,101.46t/data=!3m7!1e1!3m5!1s9pgKYT3REj6KtIYVNtpiRw!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-11.463631515564856%26panoid%3D9pgKYT3REj6KtIYVNtpiRw%26yaw%3D49.22237650302465!7i13312!8i6656?entry=ttu&g_ep=EgoyMDI0MTEyNC4xIKXMDSoASAFQAw%3D%3D"; 
+            open(uri);
+        }
+
+    </script>
+</body>
+</html>
