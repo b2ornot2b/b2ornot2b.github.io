@@ -83,7 +83,10 @@
     <div id="typing"></div>
     <div id="offscreen"></div>
 
-    <audio id="background-audio" src="bgm.mp3" autoplay loop></audio>
+    <!--audio id="background-audio" src="bgm.mp3" autoplay loop></audio-->
+    <audio autoplay>
+  <source src="bgm.mp3" type="audio/mpeg">
+</audio>
     <script>
         const name = "Hi";
         const text = `<span style="font-size: 2em;">Wedding Invitation</span>
