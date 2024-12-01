@@ -82,6 +82,8 @@
 <body>
     <div id="typing"></div>
     <div id="offscreen"></div>
+
+    <audio id="background-audio" src="bgm.mp3" autoplay loop></audio>
     <script>
         const name = "Hi";
         const text = `<span style="font-size: 2em;">Wedding Invitation</span>
@@ -181,6 +183,10 @@ P.S. Debugging life together since 2024! 🐍
             const uri = "https://www.google.com/maps/@15.2104903,73.9937433,3a,75y,49.22h,101.46t/data=!3m7!1e1!3m5!1s9pgKYT3REj6KtIYVNtpiRw!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D-11.463631515564856%26panoid%3D9pgKYT3REj6KtIYVNtpiRw%26yaw%3D49.22237650302465!7i13312!8i6656?entry=ttu&g_ep=EgoyMDI0MTEyNC4xIKXMDSoASAFQAw%3D%3D"; 
             open(uri);
         }
+
+        const audioElement = document.getElementById('background-audio');
+        audioElement.play().catch(error => console.log('Audio playback failed:', error));
+
 
     </script>
 </body>
