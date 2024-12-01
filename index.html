@@ -184,10 +184,10 @@ P.S. Debugging life together since 2024! 🐍
             open(uri);
         }
 
-        const audioElement = document.getElementById('background-audio');
-        audioElement.play().catch(error => console.log('Audio playback failed:', error));
-
-
+        window.onload = function() {
+            const audioElement = document.getElementById('background-audio');
+            audioElement.play().catch(error => console.log('Audio playback failed:', error));
+         }
     </script>
 </body>
 </html>
