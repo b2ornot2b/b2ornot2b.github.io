@@ -80,6 +80,8 @@
     </style>
 </head>
 <body>
+
+    <div id="button">Click to open your invitation"</div>
     <div id="typing"></div>
     <div id="offscreen"></div>
 
@@ -180,7 +182,6 @@ P.S. Debugging life together since 2024! 🐍
             }
         }
 
-        typeCharacter();
 
 
         function getLocation() { 
@@ -194,6 +195,9 @@ P.S. Debugging life together since 2024! 🐍
          }
 */
         document.addEventListener('click', () => {
+                    typeCharacter();
+const buttonElement = document.getElementById('button');
+            buttonElement.style = "display: none";
     const audioElement = document.getElementById('background-audio');
     audioElement.play().catch(error => console.log('Audio playback failed:', error));
 }, { once: true }); // Only trigger on the first user interaction
