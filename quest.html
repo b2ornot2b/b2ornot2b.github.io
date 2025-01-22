@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hero Quest: Level Up Your Life</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #e0f7fa, #ffffff);
+            color: #333;
+            line-height: 1.6;
+        }
+        header {
+            background: #00796b;
+            color: white;
+            text-align: center;
+            padding: 20px 10px;
+            font-size: 2em;
+            letter-spacing: 2px;
+        }
+        section {
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            background: #f9f9f9;
+        }
+        section h2 {
+            background: #00796b;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 5px solid #00796b;
+            background: #e8f5e9;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        .negative {
+            border-left: 5px solid #d32f2f;
+            background: #ffebee;
+        }
+        .bonus {
+            background: #ffe082;
+            border-left: 5px solid #ff6f00;
+        }
+        .money {
+            color: #388e3c;
+            font-weight: bold;
+        }
+        .xp {
+            color: #0288d1;
+            font-weight: bold;
+        }
+        .penalty {
+            color: #d32f2f;
+            font-weight: bold;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #004d40;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <header>Hero Quest: Level Up Your Life!</header>
+
+    <section>
+        <h2>Power-Up Actions</h2>
+        <ul>
+            <li><strong>[Trophy] Morning Power:</strong> Unlock Clean Start Buff: Make the bed neatly by folding blankets and arranging pillows (<span class="xp">+10 XP</span>).</li>
+            <li>Gain Fresh Hero Bonus: Brush teeth and tidy up the bathroom (<span class="xp">+10 XP</span>).</li>
+            <li>Master Order: Place dirty clothes in the laundry basket (<span class="xp">+10 XP</span>).</li>
+        </ul>
+
+        <h2>Meal Time Quests</h2>
+        <ul>
+            <li>Complete Morning Feast Mission: Clear the breakfast table (<span class="money">+Rs.10</span>).</li>
+            <li>Unlock Table Champion Badge: Clear the lunch table (<span class="money">+Rs.10</span>).</li>
+            <li>Level Up Team Player Skill: Help with dinner or clear the dinner table (<span class="money">+Rs.10</span>).</li>
+        </ul>
+
+        <h2>Daily Missions</h2>
+        <ul>
+            <li>Prevent Monsters of the Night: Close all windows at dusk (<span class="money">+Rs.10</span>).</li>
+            <li>Earn Gatekeeper Title: Open or close the main gate (<span class="money">+Rs.10</span>).</li>
+            <li>Be a Prepared Prodigy: Pack your school bag for the next day (<span class="money">+Rs.10</span>).</li>
+        </ul>
+
+        <h2>Hygiene and Stamina</h2>
+        <ul>
+            <li>Unlock Sunny Gear Buff: Take a bath before lunch (*Get-Out-of-Bath-Free Card* can delay this once a month) (<span class="xp">+10 XP</span>).</li>
+            <li>Boost Stamina: Dry your towel in the sun after a bath (<span class="xp">+10 XP</span>).</li>
+        </ul>
+
+        <h2>Study Mastery</h2>
+        <ul>
+            <li>Gain Knowledge Points: Spend 1 hour (6:30-7:30 PM) on study, Olympiad prep, or yoga (<span class="xp">+10 XP</span>).</li>
+        </ul>
+
+        <h2>Physical Power-Up</h2>
+        <ul>
+            <li>Level Up Active Hero Skill: Engage in physical activities like badminton or football from 5:00-6:30 PM every day (<span class="xp">+20 XP</span>).</li>
+        </ul>
+
+        <h2>Sleep Adventure</h2>
+        <ul>
+            <li>Unlock Early Bird Title: Be in bed by 10:30 PM (<span class="xp">+15 XP</span>).</li>
+        </ul>
+
+        <h2>Helper's Heart</h2>
+        <ul>
+            <li>Earn Helping Hand Skill: Get Rs.3 for doing chores for others when asked (<span class="money">+Rs.3</span>).</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Traps to Avoid</h2>
+
+        <h3>Hygiene and Cleanliness</h3>
+        <ul>
+            <li class="negative">Trigger Toilet Trouble Trap: Leave the toilet seat down before peeing (<span class="penalty">-Rs.5</span>).</li>
+            <li class="negative">Lose Energy to the Electric Vampire: Forget to switch off lights or appliances (<span class="penalty">-Rs.5</span>).</li>
+            <li class="negative">Summon Sockless Goblin: Keep shoes out of the cabinet or without socks (<span class="penalty">-Rs.5</span>).</li>
+            <li class="negative">Fall into the Tooth Decay Pit: Use the phone while brushing teeth (<span class="penalty">-Rs.5</span>).</li>
+        </ul>
+
+        <h3>Study and Order</h3>
+        <ul>
+            <li class="negative">Invoke Clutter Chaos Curse: Leave the study table messy (<span class="penalty">-Rs.5</span>).</li>
+        </ul>
+
+        <h3>Food Mistakes</h3>
+        <ul>
+            <li class="negative">Summon Distracted Ogre: Watch videos or use your phone during meals (<span class="penalty">-Rs.5</span>).</li>
+            <li class="negative">Awaken Veggie Monster: Leave food on the plate (<span class="penalty">-Rs.5</span>).</li>
+        </ul>
+
+        <h3>Respect and Noise</h3>
+        <ul>
+            <li class="negative">Call Forth Rude Spirit: Disrespect elders or make unnecessary noise (<span class="penalty">-Rs.5</span>).</li>
+            <li class="negative">Summon Earache Goblin: Keep the TV volume too high (<span class="penalty">-Rs.5</span>).</li>
+        </ul>
+
+        <h3>Night-Time Penalties</h3>
+        <ul>
+            <li class="negative">Activate Sleep Depriver Curse: Stay awake past 11:00 PM (<span class="penalty">-Rs.5</span>).</li>
+        </ul>
+
+        <h3>School Accessories</h3>
+        <ul>
+            <li class="negative">Trigger Lost Treasure Penalty: Lose tiffins, water bottles, or school accessories (<span class="penalty">-Rs.10</span>).</li>
+            <li class="negative">Awaken Forgotten Duty Trap: Fail to remove the tiffin and bottle from the school bag and place them on the dining table before the next day (<span class="penalty">-Rs.5</span>).</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Bonus and Rewards Scheme</h2>
+
+        <h3>Bi-Weekly Bonuses</h3>
+        <ul>
+            <li class="bonus">Unlock Heroic Consistency Reward: Complete all daily missions for two weeks straight (<span class="money">+Rs.50</span>).</li>
+            <li class="bonus">Gain Top Performer Buff: Earn an extra (<span class="xp">+30 XP</span>) for perfect hygiene and study routines.</li>
+        </ul>
+
+        <h3>Monthly Rewards</h3>
+        <ul>
+            <li class="bonus">Unlock Golden Star Award: Rack up 300 XP or more in a month and snag (<span class="money">+Rs.200</span>), plus a special treat like a movie night or a favorite dessert! Shine bright, superstar!</li>
+            <li class="bonus">Level Up Legendary Helper Badge: Be the ultimate sidekick by completing 10 "Helper’s Heart" chores in a month (<span class="money">+Rs.100</span>). You’re a legend in the making!</li>
+            <li class="bonus">Unlock Champion Streak: Hit bedtime goals (10:30 PM) consistently and bag (<span class="money">+Rs.50</span>). Sleep well, dream big, and win!</li>
+            <li class="bonus">Earn Perfect Hero Badge: Finish the month penalty-free to unlock the "Perfect Hero" badge and a whopping (<span class="money">+Rs.200</span>)! Be the ultimate quest champion!</li>
+        </ul>
+    </section>
+
+    <footer>
+        Ready to level up your life? The quest begins now!
+    </footer>
+</body>
+</html>
