@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC Screen Share</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             margin: 0;
@@ -19,15 +20,24 @@
         }
 
         /* Views */
-        #host-view, #viewer-view, #landing-view {
+        #host-view, #viewer-view, #landing-view, #login-view, #unauthorized-view {
             display: none;
             flex: 1;
             width: 100%;
             height: 100%;
         }
 
+        /* Login */
+        #login-view {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
         /* Landing/Loading */
-        #landing-view {
+        #landing-view, #unauthorized-view {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -113,6 +123,7 @@
             background: #000;
             justify-content: center;
             align-items: center;
+            flex-direction: column;
         }
 
         #remote-video {
@@ -148,9 +159,63 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
+        /* Modal */
+        #approval-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .modal-content {
+            background: #222;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #444;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            justify-content: center;
+        }
+        .user-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
     </style>
 </head>
 <body>
+
+    <!-- Login View -->
+    <div id="login-view">
+        <h2>Sign in to Access</h2>
+        <!-- REPLACE YOUR_GOOGLE_CLIENT_ID with actual ID -->
+        <div id="g_id_onload"
+             data-client_id="286197967748-to36fbcbvtvaip88v2r5jfild8midats.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse"
+             data-auto_select="true">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-theme="dark"></div>
+    </div>
+
+    <!-- Unauthorized View -->
+    <div id="unauthorized-view">
+        <h2 style="color: #F44336">Access Denied</h2>
+        <p>You are not authorized to host a session.</p>
+        <button class="btn btn-primary" onclick="location.reload()">Try Again</button>
+    </div>
 
     <!-- Landing / Loading View -->
     <div id="landing-view">
@@ -191,7 +256,22 @@
 
     <!-- Viewer View -->
     <div id="viewer-view">
+        <div id="viewer-status" style="margin-bottom: 20px;">Connecting...</div>
         <video id="remote-video" autoplay playsinline controls></video>
+    </div>
+
+    <!-- Approval Modal -->
+    <div id="approval-modal">
+        <div class="modal-content">
+            <h3>Viewer Requesting Access</h3>
+            <div class="user-info" id="viewer-info">
+                <!-- Populated via JS -->
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="deny-btn" class="btn status-badge offline">Deny</button>
+                <button id="approve-btn" class="btn btn-success">Approve</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -200,16 +280,20 @@
             mode: 'unknown', // 'host' or 'viewer'
             peer: null,
             stream: null,
-            connections: [], // array of DataConnections
+            connections: [], // array of objects { conn: DataConnection, approved: bool, user: object }
             calls: [], // array of MediaConnections
-            hostId: null
+            hostId: null,
+            user: null, // { email, name, picture }
+            googleToken: null
         };
 
         // DOM Elements
         const views = {
+            login: document.getElementById('login-view'),
             landing: document.getElementById('landing-view'),
             host: document.getElementById('host-view'),
-            viewer: document.getElementById('viewer-view')
+            viewer: document.getElementById('viewer-view'),
+            unauthorized: document.getElementById('unauthorized-view')
         };
 
         const els = {
@@ -225,36 +309,86 @@
             connectionStatus: document.getElementById('connection-status'),
             localVideo: document.getElementById('local-video'),
             remoteVideo: document.getElementById('remote-video'),
-            placeholder: document.getElementById('placeholder-text')
+            placeholder: document.getElementById('placeholder-text'),
+            viewerStatus: document.getElementById('viewer-status'),
+
+            // Modal
+            approvalModal: document.getElementById('approval-modal'),
+            viewerInfo: document.getElementById('viewer-info'),
+            approveBtn: document.getElementById('approve-btn'),
+            denyBtn: document.getElementById('deny-btn')
         };
 
         // Utilities
         function showView(viewName) {
             Object.values(views).forEach(el => el.style.display = 'none');
-            views[viewName].style.display = viewName === 'host' ? 'flex' : (viewName === 'viewer' ? 'flex' : 'flex');
+            if(views[viewName]) views[viewName].style.display = viewName === 'host' ? 'flex' : (viewName === 'viewer' ? 'flex' : 'flex');
         }
 
-        // 1. Mode Detection
-        async function init() {
+        // Start with Login
+        showView('login');
+
+        // Google Auth Callback
+        async function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+            state.googleToken = response.credential;
+
+            // Basic decode to show UI immediately (validation happens on server)
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            state.user = {
+                email: payload.email,
+                name: payload.name,
+                picture: payload.picture
+            };
+
+            showView('landing');
+            initApp();
+        }
+
+        // 1. Mode Detection & Auth Check
+        async function initApp() {
             const urlParams = new URLSearchParams(window.location.search);
             const hostId = urlParams.get('id');
 
-            // Fetch ICE configuration from API
+            // Verify with Backend
+            const role = hostId ? 'viewer' : 'host';
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: state.googleToken, role })
+                });
+
+                if (!res.ok) {
+                    if (role === 'host') {
+                        showView('unauthorized');
+                        return;
+                    } else {
+                        throw new Error('Auth failed');
+                    }
+                }
+            } catch (e) {
+                console.error('Auth verification failed', e);
+                // For viewer, we might continue but host will reject if token invalid
+                // For host, we must stop
+                if (role === 'host') {
+                    showView('unauthorized');
+                    return;
+                }
+            }
+
+            // Fetch ICE configuration
             let iceConfig = null;
             try {
-                // If running on Vercel or similar that serves /api/turn
                 const res = await fetch('/api/turn');
                 if (res.ok) {
                     const data = await res.json();
                     iceConfig = { iceServers: data.iceServers };
-                } else {
-                    console.warn('Failed to fetch ICE config from /api/turn, falling back to public STUN');
                 }
             } catch (e) {
                 console.warn('API fetch error, falling back to public STUN', e);
             }
 
-            // Fallback if API fails
             if (!iceConfig) {
                 iceConfig = {
                     iceServers: [
@@ -290,19 +424,95 @@
 
             // Handle incoming connections from viewers
             state.peer.on('connection', (conn) => {
-                state.connections.push(conn);
-                updateViewerCount();
+                console.log("New connection:", conn.peer);
 
-                // If we are already sharing, call them immediately
-                if (state.stream) {
-                    callPeer(conn.peer);
-                }
+                // Track preliminary connection
+                const connObj = { conn, approved: false, user: null };
+                state.connections.push(connObj);
+
+                conn.on('data', async (data) => {
+                    if (data.type === 'auth') {
+                        // Verify Viewer
+                        await handleViewerAuth(connObj, data.token);
+                    }
+                });
 
                 conn.on('close', () => {
-                    state.connections = state.connections.filter(c => c !== conn);
+                    state.connections = state.connections.filter(c => c.conn !== conn);
                     updateViewerCount();
                 });
             });
+        }
+
+        async function handleViewerAuth(connObj, token) {
+            try {
+                // Verify token with backend
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, role: 'viewer' })
+                });
+
+                if (!res.ok) throw new Error('Invalid viewer token');
+
+                const data = await res.json();
+                connObj.user = data;
+
+                // Show Approval UI
+                promptApproval(connObj);
+
+            } catch (e) {
+                console.error("Viewer auth failed", e);
+                connObj.conn.send({ type: 'error', message: 'Authentication failed' });
+                setTimeout(() => connObj.conn.close(), 1000);
+            }
+        }
+
+        let pendingApproval = null;
+
+        function promptApproval(connObj) {
+            // Queueing not implemented for simplicity, just show last one or block
+            pendingApproval = connObj;
+
+            els.viewerInfo.innerHTML = `
+                <img src="${connObj.user.picture}" alt="${connObj.user.name}">
+                <div>
+                    <strong>${connObj.user.name}</strong><br>
+                    <small>${connObj.user.email}</small>
+                </div>
+            `;
+
+            els.approvalModal.style.display = 'flex';
+        }
+
+        // Approval Buttons
+        els.approveBtn.addEventListener('click', () => {
+            if (pendingApproval) {
+                approveViewer(pendingApproval);
+                els.approvalModal.style.display = 'none';
+                pendingApproval = null;
+            }
+        });
+
+        els.denyBtn.addEventListener('click', () => {
+            if (pendingApproval) {
+                pendingApproval.conn.send({ type: 'denied' });
+                setTimeout(() => pendingApproval.conn.close(), 500);
+                state.connections = state.connections.filter(c => c !== pendingApproval);
+                els.approvalModal.style.display = 'none';
+                pendingApproval = null;
+            }
+        });
+
+        function approveViewer(connObj) {
+            connObj.approved = true;
+            connObj.conn.send({ type: 'approved' });
+            updateViewerCount();
+
+            // If we are sharing, call them
+            if (state.stream) {
+                callPeer(connObj.conn.peer);
+            }
         }
 
         function callPeer(peerId) {
@@ -339,16 +549,28 @@
         }
 
         function connectToHost() {
-            // Initiate connection (for data/presence if needed, though we mainly need the stream)
+            // Initiate connection
             const conn = state.peer.connect(state.hostId);
 
             conn.on('open', () => {
-                els.statusText.textContent = 'Waiting for stream...';
+                console.log("Connected to host, sending auth...");
+                els.viewerStatus.textContent = 'Waiting for host approval...';
+                conn.send({ type: 'auth', token: state.googleToken });
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'approved') {
+                    els.viewerStatus.textContent = 'Approved! Waiting for stream...';
+                } else if (data.type === 'denied') {
+                    els.viewerStatus.textContent = 'Access Denied by Host.';
+                    conn.close();
+                }
             });
 
             // Listen for the call (stream)
             state.peer.on('call', (call) => {
                 showView('viewer');
+                els.viewerStatus.style.display = 'none';
 
                 // Monitor ICE state
                 monitorIceConnection(call.peerConnection);
@@ -356,12 +578,12 @@
                 call.answer(); // Answer without stream (receive only)
                 call.on('error', (err) => {
                     console.error('Call error:', err);
-                    els.statusText.textContent = 'Call error: ' + err.message;
+                    els.viewerStatus.textContent = 'Call error: ' + err.message;
+                    els.viewerStatus.style.display = 'block';
                 });
 
                 call.on('stream', (remoteStream) => {
                     els.remoteVideo.srcObject = remoteStream;
-                    // Ensure video plays (sometimes browser policies block auto-play)
                     els.remoteVideo.play().catch(e => console.log('Autoplay prevented', e));
                 });
             });
@@ -374,7 +596,8 @@
                 console.log('ICE state:', pc.iceConnectionState);
                 if (state.mode === 'viewer') {
                     if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                        els.statusText.textContent = 'Connection failed (Firewall/NAT issue). Need TURN server.';
+                        els.viewerStatus.textContent = 'Connection failed (Firewall/NAT issue).';
+                        els.viewerStatus.style.display = 'block';
                     }
                 }
             };
@@ -402,7 +625,7 @@
                             cursor: "always",
                             frameRate: fps
                         },
-                        audio: true // Optional: capture system audio
+                        audio: true
                     });
 
                     state.stream = stream;
@@ -410,9 +633,11 @@
                     els.localVideo.play();
                     els.placeholder.style.display = 'none';
 
-                    // Call all currently connected viewers
-                    state.connections.forEach(conn => {
-                        callPeer(conn.peer);
+                    // Call all APPROVED viewers
+                    state.connections.forEach(connObj => {
+                        if (connObj.approved) {
+                            callPeer(connObj.conn.peer);
+                        }
                     });
 
                     // Update UI
@@ -420,16 +645,15 @@
                     els.startBtn.textContent = 'Sharing...';
                     els.shareLinkWrapper.style.display = 'block';
                     els.bitrateControl.disabled = false;
-                    els.fpsControl.disabled = true; // FPS cannot be changed during stream for screen share
+                    els.fpsControl.disabled = true;
 
-                    // Handle stream stop (user clicks "Stop Sharing" in browser UI)
+                    // Handle stream stop
                     stream.getVideoTracks()[0].onended = () => {
                         stopSharing();
                     };
 
                 } catch (err) {
                     console.error("Error sharing screen:", err);
-                    // Reset UI on error
                     els.startBtn.disabled = false;
                     els.startBtn.textContent = 'Start Sharing';
                     els.shareLinkWrapper.style.display = 'none';
@@ -446,12 +670,11 @@
             els.fpsControl.addEventListener('input', (e) => {
                 const val = e.target.value;
                 els.fpsVal.textContent = val;
-                // Only update label, value used on start
             });
         }
 
         function updateViewerCount() {
-            const count = state.connections.length; // Approximate, or track calls
+            const count = state.connections.filter(c => c.approved).length;
             els.connectionStatus.textContent = `${count} Viewer${count !== 1 ? 's' : ''}`;
             if (count > 0) {
                 els.connectionStatus.classList.remove('offline');
@@ -460,8 +683,6 @@
                 els.connectionStatus.classList.remove('live');
                 els.connectionStatus.classList.add('offline');
             }
-
-            // If we have a stream and a new viewer connects, we need to call them
         }
 
         function stopSharing() {
@@ -477,15 +698,11 @@
             els.bitrateControl.disabled = true;
             els.fpsControl.disabled = true;
 
-            // Close all calls? Or keep connections open?
             state.calls.forEach(call => call.close());
             state.calls = [];
         }
 
-        // Implementation of Controls
         async function updateBitrate(kbps) {
-            // PeerJS wraps RTCPeerConnection.
-            // We need to iterate over all active calls (MediaConnections) and update their senders.
             const maxBitrate = parseInt(kbps) * 1000;
 
             state.calls.forEach(call => {
@@ -501,19 +718,6 @@
                 }
             });
         }
-
-        async function updateFps(fps) {
-            if (!state.stream) return;
-            const track = state.stream.getVideoTracks()[0];
-            try {
-                await track.applyConstraints({ frameRate: parseInt(fps) });
-            } catch (e) {
-                console.error('FPS error', e);
-            }
-        }
-
-        // Start
-        init();
 
     </script>
 </body>
