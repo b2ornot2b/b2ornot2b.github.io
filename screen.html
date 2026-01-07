@@ -195,38 +195,6 @@
     </div>
 
     <script>
-        // ICE / TURN Configuration
-        // IMPORTANT: For production usage across the internet, you likely need a TURN server.
-        // PeerJS provides a default free STUN server, which works for many but not all networks.
-        // You can add your own STUN/TURN servers here.
-        const iceConfig = {
-            iceServers: [
-                {
-                    urls: "stun:stun.relay.metered.ca:80",
-                },
-                {
-                    urls: "turn:in.relay.metered.ca:80",
-                    username: "bb79353e9cef1636f1d588ee",
-                    credential: "2Fz1LMDmthdnP7BX",
-                },
-                {
-                    urls: "turn:in.relay.metered.ca:80?transport=tcp",
-                    username: "bb79353e9cef1636f1d588ee",
-                    credential: "2Fz1LMDmthdnP7BX",
-                },
-                {
-                    urls: "turn:in.relay.metered.ca:443",
-                    username: "bb79353e9cef1636f1d588ee",
-                    credential: "2Fz1LMDmthdnP7BX",
-                },
-                {
-                    urls: "turns:in.relay.metered.ca:443?transport=tcp",
-                    username: "bb79353e9cef1636f1d588ee",
-                    credential: "2Fz1LMDmthdnP7BX",
-                },
-            ],
-        };
-
         // State
         const state = {
             mode: 'unknown', // 'host' or 'viewer'
@@ -267,22 +235,47 @@
         }
 
         // 1. Mode Detection
-        function init() {
+        async function init() {
             const urlParams = new URLSearchParams(window.location.search);
             const hostId = urlParams.get('id');
+
+            // Fetch ICE configuration from API
+            let iceConfig = null;
+            try {
+                // If running on Vercel or similar that serves /api/turn
+                const res = await fetch('/api/turn');
+                if (res.ok) {
+                    const data = await res.json();
+                    iceConfig = { iceServers: data.iceServers };
+                } else {
+                    console.warn('Failed to fetch ICE config from /api/turn, falling back to public STUN');
+                }
+            } catch (e) {
+                console.warn('API fetch error, falling back to public STUN', e);
+            }
+
+            // Fallback if API fails
+            if (!iceConfig) {
+                iceConfig = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:global.stun.twilio.com:3478' }
+                    ]
+                };
+            }
 
             if (hostId) {
                 state.mode = 'viewer';
                 state.hostId = hostId;
-                initViewer();
+                initViewer(iceConfig);
             } else {
                 state.mode = 'host';
-                initHost();
+                initHost(iceConfig);
             }
         }
 
         // Initialize Host
-        function initHost() {
+        function initHost(iceConfig) {
             state.peer = new Peer(null, { config: iceConfig });
 
             state.peer.on('open', (id) => {
@@ -332,7 +325,7 @@
         }
 
         // Initialize Viewer
-        function initViewer() {
+        function initViewer(iceConfig) {
             els.statusText.textContent = 'Connecting to host...';
             state.peer = new Peer(null, { config: iceConfig });
 
