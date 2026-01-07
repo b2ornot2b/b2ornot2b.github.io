@@ -195,6 +195,19 @@
     </div>
 
     <script>
+        // ICE / TURN Configuration
+        // IMPORTANT: For production usage across the internet, you likely need a TURN server.
+        // PeerJS provides a default free STUN server, which works for many but not all networks.
+        // You can add your own STUN/TURN servers here.
+        const iceConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:global.stun.twilio.com:3478' }
+                // Add TURN servers here if needed:
+                // { urls: 'turn:your-turn-server.com', username: 'user', credential: 'password' }
+            ]
+        };
+
         // State
         const state = {
             mode: 'unknown', // 'host' or 'viewer'
@@ -251,7 +264,7 @@
 
         // Initialize Host
         function initHost() {
-            state.peer = new Peer();
+            state.peer = new Peer(null, { config: iceConfig });
 
             state.peer.on('open', (id) => {
                 showView('host');
@@ -283,6 +296,10 @@
         function callPeer(peerId) {
             if (!state.stream) return;
             const call = state.peer.call(peerId, state.stream);
+
+            // Monitor ICE state
+            monitorIceConnection(call.peerConnection);
+
             state.calls.push(call);
 
             call.on('close', () => {
@@ -298,7 +315,7 @@
         // Initialize Viewer
         function initViewer() {
             els.statusText.textContent = 'Connecting to host...';
-            state.peer = new Peer();
+            state.peer = new Peer(null, { config: iceConfig });
 
             state.peer.on('open', () => {
                 connectToHost();
@@ -321,6 +338,9 @@
             state.peer.on('call', (call) => {
                 showView('viewer');
 
+                // Monitor ICE state
+                monitorIceConnection(call.peerConnection);
+
                 call.answer(); // Answer without stream (receive only)
                 call.on('error', (err) => {
                     console.error('Call error:', err);
@@ -333,6 +353,19 @@
                     els.remoteVideo.play().catch(e => console.log('Autoplay prevented', e));
                 });
             });
+        }
+
+        // Monitor ICE connection state
+        function monitorIceConnection(pc) {
+            if (!pc) return;
+            pc.oniceconnectionstatechange = () => {
+                console.log('ICE state:', pc.iceConnectionState);
+                if (state.mode === 'viewer') {
+                    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+                        els.statusText.textContent = 'Connection failed (Firewall/NAT issue). Need TURN server.';
+                    }
+                }
+            };
         }
 
         // Host UI & Logic
