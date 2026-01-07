@@ -1,0 +1,9 @@
+{
+  "name": "b2screen-api",
+  "version": "1.0.0",
+  "description": "API for b2screen",
+  "main": "index.js",
+  "dependencies": {
+    "google-auth-library": "^9.0.0"
+  }
+}
