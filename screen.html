@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Screen Share</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #121212;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Views */
+        #host-view, #viewer-view, #landing-view {
+            display: none;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Landing/Loading */
+        #landing-view {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .loader {
+            border: 4px solid #333;
+            border-top: 4px solid #2196F3;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Host View */
+        #host-view {
+            flex-direction: column;
+        }
+
+        .controls-panel {
+            background: #1e1e1e;
+            padding: 15px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .control-group input[type="range"] {
+            width: 150px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+        .btn-primary:hover { background: #1976D2; }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .preview-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+
+        video {
+            max-width: 100%;
+            max-height: 100%;
+            background: #000;
+        }
+
+        /* Viewer View */
+        #viewer-view {
+            background: #000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #remote-video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #333;
+            font-size: 12px;
+        }
+        .status-badge.live { background: #4CAF50; color: white; }
+        .status-badge.offline { background: #F44336; color: white; }
+
+        #share-link-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        #share-link {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: monospace;
+            width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Landing / Loading View -->
+    <div id="landing-view">
+        <div class="loader"></div>
+        <p id="status-text" style="margin-top: 20px;">Initializing...</p>
+    </div>
+
+    <!-- Host View -->
+    <div id="host-view">
+        <div class="controls-panel">
+            <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
+                <button id="start-btn" class="btn btn-primary">Start Sharing</button>
+                <div id="share-link-wrapper" style="display: none;">
+                    <div id="share-link-container">
+                        <input type="text" id="share-link" readonly>
+                        <button id="copy-btn" class="btn btn-success" style="padding: 4px 8px; font-size: 12px;">Copy</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Max Bitrate: <span id="bitrate-val">2000</span> kbps</label>
+                <input type="range" id="bitrate-control" min="100" max="5000" step="100" value="2000" disabled>
+            </div>
+
+            <div class="control-group">
+                <label>Max FPS: <span id="fps-val">30</span> (Set before start)</label>
+                <input type="range" id="fps-control" min="1" max="60" step="1" value="30">
+            </div>
+
+            <div class="status-badge offline" id="connection-status">0 Viewers</div>
+        </div>
+        <div class="preview-container">
+            <video id="local-video" muted playsinline></video>
+            <div id="placeholder-text" style="position: absolute; color: #666;">Preview will appear here</div>
+        </div>
+    </div>
+
+    <!-- Viewer View -->
+    <div id="viewer-view">
+        <video id="remote-video" autoplay playsinline controls></video>
+    </div>
+
+    <script>
+        // State
+        const state = {
+            mode: 'unknown', // 'host' or 'viewer'
+            peer: null,
+            stream: null,
+            connections: [], // array of DataConnections
+            calls: [], // array of MediaConnections
+            hostId: null
+        };
+
+        // DOM Elements
+        const views = {
+            landing: document.getElementById('landing-view'),
+            host: document.getElementById('host-view'),
+            viewer: document.getElementById('viewer-view')
+        };
+
+        const els = {
+            statusText: document.getElementById('status-text'),
+            startBtn: document.getElementById('start-btn'),
+            shareLinkWrapper: document.getElementById('share-link-wrapper'),
+            shareLinkInput: document.getElementById('share-link'),
+            copyBtn: document.getElementById('copy-btn'),
+            bitrateControl: document.getElementById('bitrate-control'),
+            bitrateVal: document.getElementById('bitrate-val'),
+            fpsControl: document.getElementById('fps-control'),
+            fpsVal: document.getElementById('fps-val'),
+            connectionStatus: document.getElementById('connection-status'),
+            localVideo: document.getElementById('local-video'),
+            remoteVideo: document.getElementById('remote-video'),
+            placeholder: document.getElementById('placeholder-text')
+        };
+
+        // Utilities
+        function showView(viewName) {
+            Object.values(views).forEach(el => el.style.display = 'none');
+            views[viewName].style.display = viewName === 'host' ? 'flex' : (viewName === 'viewer' ? 'flex' : 'flex');
+        }
+
+        // 1. Mode Detection
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hostId = urlParams.get('id');
+
+            if (hostId) {
+                state.mode = 'viewer';
+                state.hostId = hostId;
+                initViewer();
+            } else {
+                state.mode = 'host';
+                initHost();
+            }
+        }
+
+        // Initialize Host
+        function initHost() {
+            state.peer = new Peer();
+
+            state.peer.on('open', (id) => {
+                showView('host');
+                setupHostUI(id);
+            });
+
+            state.peer.on('error', (err) => {
+                console.error(err);
+                alert('PeerJS Error: ' + err.type);
+            });
+
+            // Handle incoming connections from viewers
+            state.peer.on('connection', (conn) => {
+                state.connections.push(conn);
+                updateViewerCount();
+
+                // If we are already sharing, call them immediately
+                if (state.stream) {
+                    callPeer(conn.peer);
+                }
+
+                conn.on('close', () => {
+                    state.connections = state.connections.filter(c => c !== conn);
+                    updateViewerCount();
+                });
+            });
+        }
+
+        function callPeer(peerId) {
+            if (!state.stream) return;
+            const call = state.peer.call(peerId, state.stream);
+            state.calls.push(call);
+
+            call.on('close', () => {
+                state.calls = state.calls.filter(c => c !== call);
+            });
+
+            call.on('error', (err) => {
+                console.error('Call error:', err);
+                state.calls = state.calls.filter(c => c !== call);
+            });
+        }
+
+        // Initialize Viewer
+        function initViewer() {
+            els.statusText.textContent = 'Connecting to host...';
+            state.peer = new Peer();
+
+            state.peer.on('open', () => {
+                connectToHost();
+            });
+
+            state.peer.on('error', (err) => {
+                els.statusText.textContent = 'Error: ' + err.type;
+            });
+        }
+
+        function connectToHost() {
+            // Initiate connection (for data/presence if needed, though we mainly need the stream)
+            const conn = state.peer.connect(state.hostId);
+
+            conn.on('open', () => {
+                els.statusText.textContent = 'Waiting for stream...';
+            });
+
+            // Listen for the call (stream)
+            state.peer.on('call', (call) => {
+                showView('viewer');
+
+                call.answer(); // Answer without stream (receive only)
+                call.on('error', (err) => {
+                    console.error('Call error:', err);
+                    els.statusText.textContent = 'Call error: ' + err.message;
+                });
+
+                call.on('stream', (remoteStream) => {
+                    els.remoteVideo.srcObject = remoteStream;
+                    // Ensure video plays (sometimes browser policies block auto-play)
+                    els.remoteVideo.play().catch(e => console.log('Autoplay prevented', e));
+                });
+            });
+        }
+
+        // Host UI & Logic
+        function setupHostUI(peerId) {
+            // Generate Link
+            const link = window.location.href.split('?')[0] + '?id=' + peerId;
+            els.shareLinkInput.value = link;
+
+            els.copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(link);
+                const originalText = els.copyBtn.textContent;
+                els.copyBtn.textContent = 'Copied!';
+                setTimeout(() => els.copyBtn.textContent = originalText, 2000);
+            });
+
+            // Start Sharing
+            els.startBtn.addEventListener('click', async () => {
+                try {
+                    const fps = parseInt(els.fpsControl.value);
+                    const stream = await navigator.mediaDevices.getDisplayMedia({
+                        video: {
+                            cursor: "always",
+                            frameRate: fps
+                        },
+                        audio: true // Optional: capture system audio
+                    });
+
+                    state.stream = stream;
+                    els.localVideo.srcObject = stream;
+                    els.localVideo.play();
+                    els.placeholder.style.display = 'none';
+
+                    // Call all currently connected viewers
+                    state.connections.forEach(conn => {
+                        callPeer(conn.peer);
+                    });
+
+                    // Update UI
+                    els.startBtn.disabled = true;
+                    els.startBtn.textContent = 'Sharing...';
+                    els.shareLinkWrapper.style.display = 'block';
+                    els.bitrateControl.disabled = false;
+                    els.fpsControl.disabled = true; // FPS cannot be changed during stream for screen share
+
+                    // Handle stream stop (user clicks "Stop Sharing" in browser UI)
+                    stream.getVideoTracks()[0].onended = () => {
+                        stopSharing();
+                    };
+
+                } catch (err) {
+                    console.error("Error sharing screen:", err);
+                    // Reset UI on error
+                    els.startBtn.disabled = false;
+                    els.startBtn.textContent = 'Start Sharing';
+                    els.shareLinkWrapper.style.display = 'none';
+                }
+            });
+
+            // Controls
+            els.bitrateControl.addEventListener('input', (e) => {
+                const val = e.target.value;
+                els.bitrateVal.textContent = val;
+                updateBitrate(val);
+            });
+
+            els.fpsControl.addEventListener('input', (e) => {
+                const val = e.target.value;
+                els.fpsVal.textContent = val;
+                // Only update label, value used on start
+            });
+        }
+
+        function updateViewerCount() {
+            const count = state.connections.length; // Approximate, or track calls
+            els.connectionStatus.textContent = `${count} Viewer${count !== 1 ? 's' : ''}`;
+            if (count > 0) {
+                els.connectionStatus.classList.remove('offline');
+                els.connectionStatus.classList.add('live');
+            } else {
+                els.connectionStatus.classList.remove('live');
+                els.connectionStatus.classList.add('offline');
+            }
+
+            // If we have a stream and a new viewer connects, we need to call them
+        }
+
+        function stopSharing() {
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+                state.stream = null;
+            }
+            els.localVideo.srcObject = null;
+            els.placeholder.style.display = 'block';
+            els.startBtn.disabled = false;
+            els.startBtn.textContent = 'Start Sharing';
+            els.shareLinkWrapper.style.display = 'none';
+            els.bitrateControl.disabled = true;
+            els.fpsControl.disabled = true;
+
+            // Close all calls? Or keep connections open?
+            state.calls.forEach(call => call.close());
+            state.calls = [];
+        }
+
+        // Implementation of Controls
+        async function updateBitrate(kbps) {
+            // PeerJS wraps RTCPeerConnection.
+            // We need to iterate over all active calls (MediaConnections) and update their senders.
+            const maxBitrate = parseInt(kbps) * 1000;
+
+            state.calls.forEach(call => {
+                const pc = call.peerConnection;
+                if (!pc) return;
+
+                const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    const params = sender.getParameters();
+                    if (!params.encodings) params.encodings = [{}];
+                    params.encodings[0].maxBitrate = maxBitrate;
+                    sender.setParameters(params).catch(e => console.error('Bitrate error', e));
+                }
+            });
+        }
+
+        async function updateFps(fps) {
+            if (!state.stream) return;
+            const track = state.stream.getVideoTracks()[0];
+            try {
+                await track.applyConstraints({ frameRate: parseInt(fps) });
+            } catch (e) {
+                console.error('FPS error', e);
+            }
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>
