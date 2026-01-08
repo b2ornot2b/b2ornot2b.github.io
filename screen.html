@@ -198,6 +198,101 @@
             height: 40px;
             border-radius: 50%;
         }
+
+        /* Audio Mixer */
+        #audio-mixer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            width: 300px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            display: none; /* Shown when sharing or viewing in conference mode */
+        }
+        #audio-mixer.minimized {
+            width: 200px;
+            height: 50px;
+            overflow: hidden;
+        }
+        .mixer-header {
+            padding: 10px 15px;
+            background: #252525;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+        }
+        .mixer-body {
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .channel-strip {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+        .channel-info {
+            flex: 1;
+            font-size: 12px;
+            overflow: hidden;
+        }
+        .channel-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .channel-meter canvas {
+            width: 100%;
+            height: 10px;
+            background: #111;
+            border-radius: 2px;
+        }
+        .channel-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+        }
+        .gain-slider {
+            width: 80px;
+        }
+        .mute-btn {
+            background: #444;
+            border: none;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .mute-btn.active {
+            background: #F44336;
+        }
+        .mixer-settings {
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            margin-top: 10px;
+        }
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -232,6 +327,7 @@
         <div class="controls-panel">
             <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
                 <button id="start-btn" class="btn btn-primary">Start Sharing</button>
+                <button id="host-mixer-btn" class="btn" style="background: #333; display: none;">Audio Mixer</button>
                 <div id="share-link-wrapper" style="display: none;">
                     <div id="share-link-container">
                         <input type="text" id="share-link" readonly>
@@ -263,6 +359,8 @@
         <div id="viewer-status" style="margin-bottom: 20px;">Connecting...</div>
         <!-- Removed controls to allow custom gestures -->
         <video id="remote-video" autoplay playsinline></video>
+        <!-- Viewer Mixer Button -->
+        <button id="viewer-mixer-btn" class="btn" style="position: fixed; bottom: 20px; left: 20px; background: #333; display: none; z-index: 100;">Audio Mixer</button>
     </div>
 
     <!-- Approval Modal -->
@@ -279,17 +377,51 @@
         </div>
     </div>
 
+    <!-- Audio Mixer Panel -->
+    <div id="audio-mixer">
+        <div class="mixer-header" id="mixer-header">
+            <span>Audio Mixer</span>
+            <span style="font-size: 10px;">▼</span>
+        </div>
+        <div class="mixer-body">
+            <div class="mixer-settings">
+                <div class="setting-row">
+                    <label>Audio Mode</label>
+                    <select id="audio-mode-select" style="background:#333; color:#fff; border:none; padding:4px;">
+                        <option value="voice">Voice (Standard)</option>
+                        <option value="musician">Musician (Hi-Fi)</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label>Routing</label>
+                    <select id="audio-routing-select" style="background:#333; color:#fff; border:none; padding:4px;">
+                        <option value="broadcast">Broadcast (Host Only)</option>
+                        <option value="conference">Conference (Mesh)</option>
+                    </select>
+                </div>
+            </div>
+            <div id="mixer-channels">
+                <!-- Channels injected here -->
+            </div>
+        </div>
+    </div>
+
     <script>
         // State
         const state = {
             mode: 'unknown', // 'host' or 'viewer'
             peer: null,
-            stream: null,
-            connections: [], // array of objects { conn: DataConnection, approved: bool, user: object }
+            stream: null, // Host: A/V stream. Viewer: Mic stream?
+            audioStream: null, // Explicit audio stream for bidirectional
+            connections: [], // Host: connected viewers
+            meshConnections: new Map(), // Viewer: connected peers (id -> call)
             calls: [], // array of MediaConnections
             hostId: null,
             user: null, // { email, name, picture }
-            googleToken: null
+            googleToken: null,
+            audioMode: 'voice', // 'voice' | 'musician'
+            routing: 'broadcast', // 'broadcast' | 'conference'
+            peerList: [] // For viewers to know who else is in the room
         };
 
         // DOM Elements
@@ -304,6 +436,8 @@
         const els = {
             statusText: document.getElementById('status-text'),
             startBtn: document.getElementById('start-btn'),
+            hostMixerBtn: document.getElementById('host-mixer-btn'),
+            viewerMixerBtn: document.getElementById('viewer-mixer-btn'),
             shareLinkWrapper: document.getElementById('share-link-wrapper'),
             shareLinkInput: document.getElementById('share-link'),
             copyBtn: document.getElementById('copy-btn'),
@@ -321,8 +455,172 @@
             approvalModal: document.getElementById('approval-modal'),
             viewerInfo: document.getElementById('viewer-info'),
             approveBtn: document.getElementById('approve-btn'),
-            denyBtn: document.getElementById('deny-btn')
+            denyBtn: document.getElementById('deny-btn'),
+
+            // Mixer
+            audioMixer: document.getElementById('audio-mixer'),
+            mixerHeader: document.getElementById('mixer-header'),
+            mixerChannels: document.getElementById('mixer-channels'),
+            audioModeSelect: document.getElementById('audio-mode-select'),
+            audioRoutingSelect: document.getElementById('audio-routing-select')
         };
+
+        // --- Audio Manager ---
+        class AudioManager {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.peers = new Map(); // id -> { gain, panner, analyser, ... }
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.connect(this.ctx.destination);
+                this.localStream = null;
+            }
+
+            async getLocalAudio(mode = 'voice') {
+                const constraints = {
+                    audio: mode === 'musician' ? {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        latency: 0
+                    } : {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                };
+                if (this.localStream) {
+                    this.localStream.getTracks().forEach(t => t.stop());
+                }
+                this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                return this.localStream;
+            }
+
+            // Also accepts 'name' for mixer display
+            addPeer(id, stream, name) {
+                if (this.peers.has(id)) return;
+
+                // Resume context if needed (browsers block auto-audio)
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const source = this.ctx.createMediaStreamSource(stream);
+                const gain = this.ctx.createGain();
+                const panner = this.ctx.createPanner();
+                const analyser = this.ctx.createAnalyser();
+
+                analyser.fftSize = 32;
+
+                // Spatial Configuration
+                panner.panningModel = 'HRTF';
+                panner.distanceModel = 'inverse';
+                this.positionPeer(panner, this.peers.size);
+
+                // Graph: Source -> Gain -> Analyser -> Panner -> Master
+                source.connect(gain);
+                gain.connect(analyser);
+                analyser.connect(panner);
+                panner.connect(this.masterGain);
+
+                this.peers.set(id, { source, gain, panner, analyser, stream, name: name || id });
+                this.renderMixer();
+            }
+
+            removePeer(id) {
+                const peer = this.peers.get(id);
+                if (peer) {
+                    peer.source.disconnect();
+                    peer.gain.disconnect();
+                    peer.analyser.disconnect();
+                    peer.panner.disconnect();
+                    this.peers.delete(id);
+                    this.renderMixer();
+                    // Re-position remaining
+                    let i = 0;
+                    this.peers.forEach(p => this.positionPeer(p.panner, i++));
+                }
+            }
+
+            positionPeer(panner, index) {
+                const count = Math.max(1, this.peers.size + 1);
+                // Spread across 180 degrees (-90 to 90)
+                const angle = (index / Math.max(1, this.peers.size - 1)) * 180 - 90;
+                const rad = angle * (Math.PI / 180);
+
+                const x = Math.sin(rad);
+                const z = -Math.cos(rad);
+
+                panner.setPosition(x, 0, z);
+            }
+
+            setPeerGain(id, val) {
+                const peer = this.peers.get(id);
+                if (peer) peer.gain.gain.value = val;
+            }
+
+            getLevels() {
+                const levels = {};
+                const dataArray = new Uint8Array(32);
+                this.peers.forEach((peer, id) => {
+                    peer.analyser.getByteFrequencyData(dataArray);
+                    // Average
+                    const avg = dataArray.reduce((a,b)=>a+b, 0) / dataArray.length;
+                    levels[id] = avg;
+                });
+                return levels;
+            }
+
+            renderMixer() {
+                els.mixerChannels.innerHTML = '';
+                this.peers.forEach((peer, id) => {
+                    const strip = document.createElement('div');
+                    strip.className = 'channel-strip';
+                    strip.innerHTML = `
+                        <div class="channel-info">
+                            <div class="channel-name">${peer.name}</div>
+                            <div class="channel-meter"><canvas id="meter-${id}"></canvas></div>
+                        </div>
+                        <div class="channel-controls">
+                            <input type="range" class="gain-slider" min="0" max="1.5" step="0.1" value="1" data-id="${id}">
+                            <button class="mute-btn" data-id="${id}">Mute</button>
+                        </div>
+                    `;
+                    els.mixerChannels.appendChild(strip);
+
+                    // Bind Events
+                    const slider = strip.querySelector('.gain-slider');
+                    slider.oninput = (e) => this.setPeerGain(id, e.target.value);
+
+                    const muteBtn = strip.querySelector('.mute-btn');
+                    muteBtn.onclick = () => {
+                        const isMuted = muteBtn.classList.toggle('active');
+                        this.setPeerGain(id, isMuted ? 0 : slider.value);
+                    };
+                });
+            }
+        }
+
+        const audioManager = new AudioManager();
+
+        // Mixer UI Loop
+        function startMixerLoop() {
+            function loop() {
+                if (els.audioMixer.style.display !== 'none') {
+                    const levels = audioManager.getLevels();
+                    for (const [id, level] of Object.entries(levels)) {
+                        const canvas = document.getElementById(`meter-${id}`);
+                        if (canvas) {
+                            const ctx = canvas.getContext('2d');
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            ctx.fillStyle = '#4CAF50';
+                            ctx.fillRect(0, 0, (level/255) * canvas.width, canvas.height);
+                        }
+                    }
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        // --- Init ---
 
         // Initialize Panzoom
         function initPanZoom() {
@@ -357,7 +655,6 @@
             console.log("Encoded JWT ID token: " + response.credential);
             state.googleToken = response.credential;
 
-            // Basic decode to show UI immediately (validation happens on server)
             const payload = JSON.parse(atob(response.credential.split('.')[1]));
             state.user = {
                 email: payload.email,
@@ -371,8 +668,8 @@
 
         // 1. Mode Detection & Auth Check
         async function initApp() {
-            // Initialize Panzoom logic once
             initPanZoom();
+            startMixerLoop();
 
             const urlParams = new URLSearchParams(window.location.search);
             const hostId = urlParams.get('id');
@@ -396,8 +693,6 @@
                 }
             } catch (e) {
                 console.error('Auth verification failed', e);
-                // For viewer, we might continue but host will reject if token invalid
-                // For host, we must stop
                 if (role === 'host') {
                     showView('unauthorized');
                     return;
@@ -425,6 +720,8 @@
                 };
             }
 
+            state.iceConfig = iceConfig;
+
             if (hostId) {
                 state.mode = 'viewer';
                 state.hostId = hostId;
@@ -435,7 +732,7 @@
             }
         }
 
-        // Initialize Host
+        // --- Host Logic ---
         function initHost(iceConfig) {
             state.peer = new Peer(null, { config: iceConfig });
 
@@ -453,27 +750,37 @@
             state.peer.on('connection', (conn) => {
                 console.log("New connection:", conn.peer);
 
-                // Track preliminary connection
                 const connObj = { conn, approved: false, user: null };
                 state.connections.push(connObj);
 
                 conn.on('data', async (data) => {
                     if (data.type === 'auth') {
-                        // Verify Viewer
                         await handleViewerAuth(connObj, data.token);
                     }
                 });
 
                 conn.on('close', () => {
                     state.connections = state.connections.filter(c => c.conn !== conn);
+                    audioManager.removePeer(conn.peer);
+                    broadcastPeerUpdate(); // Notify others
                     updateViewerCount();
+                });
+            });
+
+            // Handle incoming calls (Audio from Viewers)
+            state.peer.on('call', (call) => {
+                console.log("Received call from viewer (Audio)", call.peer);
+                call.answer();
+                call.on('stream', (remoteStream) => {
+                    const conn = state.connections.find(c => c.conn.peer === call.peer);
+                    const name = conn?.user?.name || call.peer;
+                    audioManager.addPeer(call.peer, remoteStream, name);
                 });
             });
         }
 
         async function handleViewerAuth(connObj, token) {
             try {
-                // Verify token with backend
                 const res = await fetch('/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -485,7 +792,6 @@
                 const data = await res.json();
                 connObj.user = data;
 
-                // Show Approval UI
                 promptApproval(connObj);
 
             } catch (e) {
@@ -498,9 +804,7 @@
         let pendingApproval = null;
 
         function promptApproval(connObj) {
-            // Queueing not implemented for simplicity, just show last one or block
             pendingApproval = connObj;
-
             els.viewerInfo.innerHTML = `
                 <img src="${connObj.user.picture}" alt="${connObj.user.name}">
                 <div>
@@ -508,7 +812,6 @@
                     <small>${connObj.user.email}</small>
                 </div>
             `;
-
             els.approvalModal.style.display = 'flex';
         }
 
@@ -533,50 +836,88 @@
 
         function approveViewer(connObj) {
             connObj.approved = true;
-            connObj.conn.send({ type: 'approved' });
+            connObj.conn.send({ type: 'approved', routing: state.routing });
             updateViewerCount();
 
-            // If we are sharing, call them
+            // If we are sharing, call them (Video+Audio)
             if (state.stream) {
                 callPeer(connObj.conn.peer);
             }
+
+            // Broadcast new peer list if in conference mode
+            broadcastPeerUpdate();
+        }
+
+        function broadcastPeerUpdate() {
+            if (state.routing !== 'conference') return;
+
+            // Generate clean list of peers
+            const peerList = state.connections
+                .filter(c => c.approved && c.user)
+                .map(c => ({ id: c.conn.peer, name: c.user.name }));
+
+            state.connections.forEach(c => {
+                if (c.approved && c.conn.open) {
+                    c.conn.send({ type: 'peer-update', peers: peerList });
+                }
+            });
         }
 
         function callPeer(peerId) {
             if (!state.stream) return;
             const call = state.peer.call(peerId, state.stream);
-
-            // Monitor ICE state
-            monitorIceConnection(call.peerConnection);
-
             state.calls.push(call);
-
             call.on('close', () => {
                 state.calls = state.calls.filter(c => c !== call);
             });
-
             call.on('error', (err) => {
                 console.error('Call error:', err);
                 state.calls = state.calls.filter(c => c !== call);
             });
         }
 
-        // Initialize Viewer
+        // --- Viewer Logic ---
         function initViewer(iceConfig) {
             els.statusText.textContent = 'Connecting to host...';
             state.peer = new Peer(null, { config: iceConfig });
 
-            state.peer.on('open', () => {
+            state.peer.on('open', (id) => {
+                state.myId = id;
                 connectToHost();
             });
 
             state.peer.on('error', (err) => {
                 els.statusText.textContent = 'Error: ' + err.type;
             });
+
+            // Handle incoming calls (from Host or other Peers)
+            state.peer.on('call', async (call) => {
+                console.log("Incoming call from:", call.peer);
+
+                // If it's the Host, it's the screen share stream
+                if (call.peer === state.hostId) {
+                    call.answer();
+                    call.on('stream', (remoteStream) => {
+                        els.remoteVideo.srcObject = remoteStream;
+                        els.remoteVideo.play().catch(e => console.log('Autoplay prevented', e));
+                    });
+                } else {
+                    // It's a peer (mesh audio)
+                    // We need to send our audio back to them
+                    if (!state.audioStream) {
+                        state.audioStream = await audioManager.getLocalAudio(state.audioMode);
+                    }
+                    call.answer(state.audioStream);
+
+                    call.on('stream', (remoteStream) => {
+                        const peerName = state.peerList.find(p => p.id === call.peer)?.name || call.peer;
+                        audioManager.addPeer(call.peer, remoteStream, peerName);
+                    });
+                }
+            });
         }
 
         function connectToHost() {
-            // Initiate connection
             const conn = state.peer.connect(state.hostId);
 
             conn.on('open', () => {
@@ -585,53 +926,113 @@
                 conn.send({ type: 'auth', token: state.googleToken });
             });
 
-            conn.on('data', (data) => {
+            conn.on('data', async (data) => {
                 if (data.type === 'approved') {
                     els.viewerStatus.textContent = 'Approved! Waiting for stream...';
+                    state.routing = data.routing || 'broadcast';
+
+                    // Enable Viewer Mixer button
+                    els.viewerMixerBtn.style.display = 'inline-block';
+
+                    // Start Local Audio to send to Host
+                    state.audioStream = await audioManager.getLocalAudio(state.audioMode);
+                    // Call Host with Audio
+                    state.peer.call(state.hostId, state.audioStream);
+
                 } else if (data.type === 'denied') {
                     els.viewerStatus.textContent = 'Access Denied by Host.';
                     conn.close();
+                } else if (data.type === 'peer-update') {
+                    handlePeerUpdate(data.peers);
+                } else if (data.type === 'routing-update') {
+                    state.routing = data.mode;
+                    // If switching to broadcast, maybe close peer calls?
+                    // For now keeping it simple.
                 }
-            });
-
-            // Listen for the call (stream)
-            state.peer.on('call', (call) => {
-                showView('viewer');
-                els.viewerStatus.style.display = 'none';
-
-                // Monitor ICE state
-                monitorIceConnection(call.peerConnection);
-
-                call.answer(); // Answer without stream (receive only)
-                call.on('error', (err) => {
-                    console.error('Call error:', err);
-                    els.viewerStatus.textContent = 'Call error: ' + err.message;
-                    els.viewerStatus.style.display = 'block';
-                });
-
-                call.on('stream', (remoteStream) => {
-                    els.remoteVideo.srcObject = remoteStream;
-                    els.remoteVideo.play().catch(e => console.log('Autoplay prevented', e));
-                });
             });
         }
 
-        // Monitor ICE connection state
-        function monitorIceConnection(pc) {
-            if (!pc) return;
-            pc.oniceconnectionstatechange = () => {
-                console.log('ICE state:', pc.iceConnectionState);
-                if (state.mode === 'viewer') {
-                    if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-                        els.viewerStatus.textContent = 'Connection failed (Firewall/NAT issue).';
-                        els.viewerStatus.style.display = 'block';
+        function handlePeerUpdate(peers) {
+            state.peerList = peers;
+            if (state.routing !== 'conference') return;
+
+            // Connect to new peers
+            // Rule: Connect if MyID > PeerID (to avoid duplicate calls)
+            // But we actually need both sides to hear each other?
+            // PeerJS calls are one-way streams usually unless answered with stream.
+            // Bidirectional pattern: A calls B with stream. B answers with stream.
+
+            peers.forEach(async (peer) => {
+                if (peer.id === state.myId) return; // Self
+                if (state.meshConnections.has(peer.id)) return; // Already connected
+
+                // Only initiate if my ID is "greater" (lexicographically) to avoid collision
+                if (state.myId > peer.id) {
+                    console.log("Initiating mesh call to", peer.id);
+                    if (!state.audioStream) {
+                        state.audioStream = await audioManager.getLocalAudio(state.audioMode);
                     }
+
+                    const call = state.peer.call(peer.id, state.audioStream);
+                    state.meshConnections.set(peer.id, call);
+
+                    call.on('stream', (remoteStream) => {
+                        audioManager.addPeer(peer.id, remoteStream, peer.name);
+                    });
+
+                    call.on('close', () => {
+                        audioManager.removePeer(peer.id);
+                        state.meshConnections.delete(peer.id);
+                    });
                 }
-            };
+            });
         }
 
         // Host UI & Logic
         function setupHostUI(peerId) {
+            // Mixer Logic
+            els.hostMixerBtn.style.display = 'inline-block';
+
+            const toggleMixer = () => {
+                els.audioMixer.style.display = els.audioMixer.style.display === 'block' ? 'none' : 'block';
+            };
+
+            els.hostMixerBtn.onclick = toggleMixer;
+            els.viewerMixerBtn.onclick = toggleMixer;
+
+            els.mixerHeader.onclick = () => {
+                els.audioMixer.classList.toggle('minimized');
+            };
+
+            // Mode Select
+            els.audioModeSelect.onchange = async (e) => {
+                state.audioMode = e.target.value;
+                // Restart local stream with new constraints
+                if (state.mode === 'viewer') { // Viewers send audio
+                     state.audioStream = await audioManager.getLocalAudio(state.audioMode);
+                     // Re-calling host/peers with new stream is complex (PeerJS replaceTrack?).
+                     // Simplification: Warn user to refresh or re-connect.
+                     alert("Audio mode changed. Audio stream updated for future connections.");
+                }
+            };
+
+            // Routing Select (Host Only)
+            if (state.mode === 'host') {
+                els.audioRoutingSelect.disabled = false;
+                els.audioRoutingSelect.onchange = (e) => {
+                    state.routing = e.target.value;
+                    // Notify viewers
+                    state.connections.forEach(c => {
+                        if (c.conn.open) c.conn.send({ type: 'routing-update', mode: state.routing });
+                    });
+                    if (state.routing === 'conference') {
+                        broadcastPeerUpdate();
+                    }
+                };
+            } else {
+                els.audioRoutingSelect.disabled = true;
+            }
+
             // Generate Link
             const link = window.location.href.split('?')[0] + '?id=' + peerId;
             els.shareLinkInput.value = link;
@@ -674,6 +1075,9 @@
                     els.bitrateControl.disabled = false;
                     els.fpsControl.disabled = true;
 
+                    // Show Mixer
+                    els.audioMixer.style.display = 'block';
+
                     // Handle stream stop
                     stream.getVideoTracks()[0].onended = () => {
                         stopSharing();
@@ -700,6 +1104,8 @@
             });
         }
 
+        // ... rest of shared functions (updateViewerCount, stopSharing, etc) ...
+        // Re-adding them to ensure scope validity
         function updateViewerCount() {
             const count = state.connections.filter(c => c.approved).length;
             els.connectionStatus.textContent = `${count} Viewer${count !== 1 ? 's' : ''}`;
@@ -724,6 +1130,7 @@
             els.shareLinkWrapper.style.display = 'none';
             els.bitrateControl.disabled = true;
             els.fpsControl.disabled = true;
+            els.audioMixer.style.display = 'none';
 
             state.calls.forEach(call => call.close());
             state.calls = [];
