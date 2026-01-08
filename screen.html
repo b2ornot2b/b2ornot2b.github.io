@@ -329,6 +329,75 @@
             margin-bottom: 8px;
             font-size: 12px;
         }
+
+        /* Viewers Modal */
+        #viewers-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #viewers-modal .modal-content {
+            background: #222;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            border: 1px solid #444;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #viewers-list {
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .viewer-item {
+            display: flex;
+            align-items: center;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            gap: 10px;
+        }
+        .viewer-item img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        .viewer-info {
+            flex: 1;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .viewer-email {
+            font-size: 11px;
+            color: #aaa;
+        }
+        .btn-kick {
+            background: #F44336;
+            color: white;
+            padding: 4px 8px;
+            font-size: 11px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-kick:hover {
+            background: #D32F2F;
+        }
     </style>
 </head>
 <body>
@@ -384,7 +453,7 @@
                 <input type="range" id="fps-control" min="1" max="60" step="1" value="30">
             </div>
 
-            <div class="status-badge offline" id="connection-status">0 Viewers</div>
+            <button class="status-badge offline" id="connection-status" style="border:none; cursor:pointer;">0 Viewers</button>
         </div>
         <div class="preview-container">
             <video id="local-video" muted playsinline></video>
@@ -504,6 +573,20 @@
         </div>
     </div>
 
+    <!-- Viewers List Modal -->
+    <div id="viewers-modal">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0;">Connected Viewers</h3>
+                <span id="close-viewers" style="cursor:pointer; font-size:20px;">&times;</span>
+            </div>
+            <div id="viewers-list">
+                <!-- Viewer items injected here -->
+            </div>
+            <button id="close-viewers-btn" class="btn btn-secondary" style="background: #444; color: white;">Close</button>
+        </div>
+    </div>
+
     <!-- Hidden Main Audio Output -->
     <audio id="main-output-audio" autoplay style="display:none;"></audio>
 
@@ -523,7 +606,7 @@
             user: null, // { email, name, picture }
             googleToken: null,
             audioMode: 'voice', // 'voice' | 'musician'
-            routing: 'broadcast', // 'broadcast' | 'conference'
+            routing: 'conference', // 'broadcast' | 'conference'
             peerList: [], // For viewers to know who else is in the room
             devices: { inputs: [], outputs: [] },
             auxOutputs: [] // Array of { element, deviceId }
@@ -577,7 +660,13 @@
             gainLocalMic: document.getElementById('gain-local-mic'),
             muteLocalMic: document.getElementById('mute-local-mic'),
             gainLocalSys: document.getElementById('gain-local-sys'),
-            muteLocalSys: document.getElementById('mute-local-sys')
+            muteLocalSys: document.getElementById('mute-local-sys'),
+
+            // Viewers Modal
+            viewersModal: document.getElementById('viewers-modal'),
+            viewersList: document.getElementById('viewers-list'),
+            closeViewers: document.getElementById('close-viewers'),
+            closeViewersBtn: document.getElementById('close-viewers-btn')
         };
 
         // --- Audio Manager ---
@@ -1345,6 +1434,20 @@
                 document.getElementById('qr-modal').style.display = 'none';
             });
 
+            // Viewer List Modal Events
+            els.connectionStatus.onclick = () => {
+                renderViewerList();
+                els.viewersModal.style.display = 'flex';
+            };
+
+            els.closeViewers.onclick = () => {
+                els.viewersModal.style.display = 'none';
+            };
+
+            els.closeViewersBtn.onclick = () => {
+                els.viewersModal.style.display = 'none';
+            };
+
             // Start Sharing
             els.startBtn.addEventListener('click', async () => {
                 try {
@@ -1681,6 +1784,50 @@
                     sender.setParameters(params).catch(e => console.error('Bitrate error', e));
                 }
             });
+        }
+
+        // --- Viewer Management ---
+        function renderViewerList() {
+            els.viewersList.innerHTML = '';
+
+            const approvedViewers = state.connections.filter(c => c.approved && c.user);
+
+            if (approvedViewers.length === 0) {
+                els.viewersList.innerHTML = '<div style="color:#888; text-align:center; padding:20px;">No viewers connected</div>';
+                return;
+            }
+
+            approvedViewers.forEach(connObj => {
+                const item = document.createElement('div');
+                item.className = 'viewer-item';
+
+                item.innerHTML = `
+                    <img src="${connObj.user.picture}" alt="${connObj.user.name}">
+                    <div class="viewer-info">
+                        <div>${connObj.user.name}</div>
+                        <div class="viewer-email">${connObj.user.email}</div>
+                    </div>
+                    <button class="btn-kick">Kick</button>
+                `;
+
+                const kickBtn = item.querySelector('.btn-kick');
+                kickBtn.onclick = () => kickViewer(connObj);
+
+                els.viewersList.appendChild(item);
+            });
+        }
+
+        function kickViewer(connObj) {
+            if (confirm(`Are you sure you want to kick ${connObj.user.name}?`)) {
+                // Send kicked message
+                try {
+                    connObj.conn.send({ type: 'denied', reason: 'Kicked by host' });
+                } catch(e) { console.warn("Could not send kick msg", e); }
+
+                // Close connection
+                setTimeout(() => connObj.conn.close(), 100);
+                setTimeout(() => renderViewerList(), 200);
+            }
         }
 
     </script>
