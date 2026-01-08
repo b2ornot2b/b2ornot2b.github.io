@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -162,14 +163,34 @@
             border-radius: 4px;
         }
         #share-link {
-            background: transparent;
-            border: none;
+            display: none;
+        }
+
+        #qr-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #qr-modal .modal-content {
+            background: #222;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #444;
             color: #fff;
-            font-family: monospace;
-            width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        }
+        #qr-container {
+            margin: 20px auto;
+            background: white;
+            padding: 10px;
         }
 
         /* Modal */
@@ -348,6 +369,7 @@
                     <div id="share-link-container">
                         <input type="text" id="share-link" readonly>
                         <button id="copy-btn" class="btn btn-success" style="padding: 4px 8px; font-size: 12px;">Copy</button>
+                        <button id="qr-btn" class="btn btn-primary" style="padding: 4px 8px; font-size: 12px; margin-left: 5px;">QR Code</button>
                     </div>
                 </div>
             </div>
@@ -446,6 +468,15 @@
             <div id="mixer-channels">
                 <!-- Channels injected here -->
             </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal">
+        <div class="modal-content">
+            <h3>Scan to Join</h3>
+            <div id="qr-container"></div>
+            <button id="close-qr" class="btn btn-secondary" style="background: #444; color: white;">Close</button>
         </div>
     </div>
 
@@ -1209,6 +1240,23 @@
                 const originalText = els.copyBtn.textContent;
                 els.copyBtn.textContent = 'Copied!';
                 setTimeout(() => els.copyBtn.textContent = originalText, 2000);
+            });
+
+            // QR Code Logic
+            const qrBtn = document.getElementById('qr-btn');
+            qrBtn.addEventListener('click', () => {
+                const link = els.shareLinkInput.value;
+                document.getElementById('qr-container').innerHTML = '';
+                new QRCode(document.getElementById('qr-container'), {
+                    text: link,
+                    width: 256,
+                    height: 256
+                });
+                document.getElementById('qr-modal').style.display = 'flex';
+            });
+
+            document.getElementById('close-qr').addEventListener('click', () => {
+                document.getElementById('qr-modal').style.display = 'none';
             });
 
             // Start Sharing
