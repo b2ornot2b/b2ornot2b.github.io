@@ -1127,6 +1127,12 @@
             state.peer.on('open', (id) => {
                 state.myId = id;
                 showView('viewer');
+            els.viewerMixerBtn.style.display = 'inline-block';
+            const toggleMixer = () => {
+                els.audioMixer.style.display =
+                    els.audioMixer.style.display === 'block' ? 'none' : 'block';
+            };
+            els.viewerMixerBtn.onclick = toggleMixer;
                 connectToHost();
             });
 
