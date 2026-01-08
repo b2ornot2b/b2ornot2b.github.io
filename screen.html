@@ -504,6 +504,9 @@
         </div>
     </div>
 
+    <!-- Hidden Main Audio Output -->
+    <audio id="main-output-audio" autoplay style="display:none;"></audio>
+
     <script>
         // State
         const state = {
@@ -583,7 +586,19 @@
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                 this.peers = new Map(); // id -> { gain, panner, analyser, ... }
                 this.masterGain = this.ctx.createGain();
-                this.masterGain.connect(this.ctx.destination);
+
+                // Refactor: Route to MediaStreamDestination instead of default destination
+                // This allows us to pipe it into an <audio> element for setSinkId support
+                this.outputDestination = this.ctx.createMediaStreamDestination();
+                this.masterGain.connect(this.outputDestination);
+
+                // Bind to hidden audio element
+                const outAudio = document.getElementById('main-output-audio');
+                if (outAudio) {
+                    outAudio.srcObject = this.outputDestination.stream;
+                    // We'll play() it on user gesture later
+                }
+
                 this.localStream = null;
 
                 // Host Mixing Nodes
@@ -691,6 +706,12 @@
             // Also accepts 'name' for mixer display
             addPeer(id, stream, name) {
                 if (this.peers.has(id)) return;
+
+                // Robustness: Ensure audio tracks exist
+                if (stream.getAudioTracks().length === 0) {
+                    console.warn(`Peer ${id} has no audio tracks, skipping mixer addition.`);
+                    return;
+                }
 
                 // Resume context if needed (browsers block auto-audio)
                 if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -1321,6 +1342,15 @@
             // Start Sharing
             els.startBtn.addEventListener('click', async () => {
                 try {
+                    // Host Audio Resume Logic
+                    if (audioManager.ctx.state === 'suspended') {
+                        await audioManager.ctx.resume();
+                    }
+                    const outAudio = document.getElementById('main-output-audio');
+                    if (outAudio) {
+                        outAudio.play().catch(e => console.warn("Main audio play failed", e));
+                    }
+
                     const fps = parseInt(els.fpsControl.value);
 
                     // 1. Get Screen Stream (with System Audio)
@@ -1512,6 +1542,11 @@
                     await els.remoteVideo.setSinkId(deviceId);
                     // Also set local video if monitoring (muted by default)
                     await els.localVideo.setSinkId(deviceId);
+
+                    // Update main audio output (Host Mixer Output)
+                    const outAudio = document.getElementById('main-output-audio');
+                    if (outAudio) await outAudio.setSinkId(deviceId);
+
                     console.log("Main output set to", deviceId);
                  }
             });
