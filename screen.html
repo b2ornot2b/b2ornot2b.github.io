@@ -103,6 +103,14 @@
             color: white;
         }
 
+        .btn-mute {
+            background: #444;
+            color: white;
+        }
+        .btn-mute.active {
+            background: #F44336;
+        }
+
         .preview-container {
             flex: 1;
             display: flex;
@@ -233,12 +241,19 @@
             max-height: 400px;
             overflow-y: auto;
         }
+        .section-header {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #888;
+            margin: 10px 0 5px 0;
+            letter-spacing: 1px;
+        }
         .channel-strip {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 15px;
-            padding: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
             background: #2a2a2a;
             border-radius: 4px;
         }
@@ -256,7 +271,7 @@
         }
         .channel-meter canvas {
             width: 100%;
-            height: 10px;
+            height: 8px;
             background: #111;
             border-radius: 2px;
         }
@@ -327,6 +342,7 @@
         <div class="controls-panel">
             <div style="flex: 1; display: flex; align-items: center; gap: 15px;">
                 <button id="start-btn" class="btn btn-primary">Start Sharing</button>
+                <button id="mic-toggle-btn" class="btn btn-mute" style="display: none;">Mute Mic</button>
                 <button id="host-mixer-btn" class="btn" style="background: #333; display: none;">Audio Mixer</button>
                 <div id="share-link-wrapper" style="display: none;">
                     <div id="share-link-container">
@@ -400,6 +416,33 @@
                     </select>
                 </div>
             </div>
+
+            <!-- Local Inputs (Host Only) -->
+            <div id="local-inputs-section" style="display: none;">
+                <div class="section-header">Local Inputs</div>
+                <div class="channel-strip">
+                    <div class="channel-info">
+                        <div class="channel-name">Microphone</div>
+                        <div class="channel-meter"><canvas id="meter-local-mic"></canvas></div>
+                    </div>
+                    <div class="channel-controls">
+                        <input type="range" class="gain-slider" id="gain-local-mic" min="0" max="2" step="0.1" value="1">
+                        <button class="mute-btn" id="mute-local-mic">Mute</button>
+                    </div>
+                </div>
+                <div class="channel-strip">
+                    <div class="channel-info">
+                        <div class="channel-name">System Audio</div>
+                        <div class="channel-meter"><canvas id="meter-local-sys"></canvas></div>
+                    </div>
+                    <div class="channel-controls">
+                        <input type="range" class="gain-slider" id="gain-local-sys" min="0" max="2" step="0.1" value="1">
+                        <button class="mute-btn" id="mute-local-sys">Mute</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header">Remote Participants</div>
             <div id="mixer-channels">
                 <!-- Channels injected here -->
             </div>
@@ -411,8 +454,10 @@
         const state = {
             mode: 'unknown', // 'host' or 'viewer'
             peer: null,
-            stream: null, // Host: A/V stream. Viewer: Mic stream?
+            stream: null, // Host: A/V stream (Screen)
+            micStream: null, // Host: Mic stream
             audioStream: null, // Explicit audio stream for bidirectional
+            mixedStream: null, // Host: Mixed Mic + System Audio
             connections: [], // Host: connected viewers
             meshConnections: new Map(), // Viewer: connected peers (id -> call)
             calls: [], // array of MediaConnections
@@ -436,6 +481,7 @@
         const els = {
             statusText: document.getElementById('status-text'),
             startBtn: document.getElementById('start-btn'),
+            micToggleBtn: document.getElementById('mic-toggle-btn'),
             hostMixerBtn: document.getElementById('host-mixer-btn'),
             viewerMixerBtn: document.getElementById('viewer-mixer-btn'),
             shareLinkWrapper: document.getElementById('share-link-wrapper'),
@@ -462,7 +508,12 @@
             mixerHeader: document.getElementById('mixer-header'),
             mixerChannels: document.getElementById('mixer-channels'),
             audioModeSelect: document.getElementById('audio-mode-select'),
-            audioRoutingSelect: document.getElementById('audio-routing-select')
+            audioRoutingSelect: document.getElementById('audio-routing-select'),
+            localInputsSection: document.getElementById('local-inputs-section'),
+            gainLocalMic: document.getElementById('gain-local-mic'),
+            muteLocalMic: document.getElementById('mute-local-mic'),
+            gainLocalSys: document.getElementById('gain-local-sys'),
+            muteLocalSys: document.getElementById('mute-local-sys')
         };
 
         // --- Audio Manager ---
@@ -473,6 +524,27 @@
                 this.masterGain = this.ctx.createGain();
                 this.masterGain.connect(this.ctx.destination);
                 this.localStream = null;
+
+                // Host Mixing Nodes
+                this.localMicNode = this.ctx.createGain();
+                this.localSysNode = this.ctx.createGain();
+                this.localMicAnalyser = this.ctx.createAnalyser();
+                this.localSysAnalyser = this.ctx.createAnalyser();
+
+                this.localMicAnalyser.fftSize = 32;
+                this.localSysAnalyser.fftSize = 32;
+
+                this.localDestination = this.ctx.createMediaStreamDestination();
+
+                // Connect Mixing Graph:
+                // Sources -> Gain -> Analyser -> Destination (for PeerJS)
+                // Sources -> Gain -> Analyser -> Master (for local monitoring? No, Host shouldn't hear self)
+
+                this.localMicNode.connect(this.localMicAnalyser);
+                this.localMicAnalyser.connect(this.localDestination);
+
+                this.localSysNode.connect(this.localSysAnalyser);
+                this.localSysAnalyser.connect(this.localDestination);
             }
 
             async getLocalAudio(mode = 'voice') {
@@ -493,6 +565,44 @@
                 }
                 this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 return this.localStream;
+            }
+
+            // Mix Mic + System Audio (Host)
+            setLocalSources(micStream, sysStream) {
+                // Cleanup old sources
+                if (this.currentMicSource) {
+                    this.currentMicSource.disconnect();
+                    this.currentMicSource = null;
+                }
+                if (this.currentSysSource) {
+                    this.currentSysSource.disconnect();
+                    this.currentSysSource = null;
+                }
+
+                if (micStream) {
+                    this.currentMicSource = this.ctx.createMediaStreamSource(micStream);
+                    this.currentMicSource.connect(this.localMicNode);
+                }
+
+                if (sysStream) {
+                    // Check if system stream has audio tracks
+                    if (sysStream.getAudioTracks().length > 0) {
+                        this.currentSysSource = this.ctx.createMediaStreamSource(sysStream);
+                        this.currentSysSource.connect(this.localSysNode);
+                    }
+                }
+            }
+
+            getMixedStream() {
+                return this.localDestination.stream;
+            }
+
+            setMicGain(val) {
+                this.localMicNode.gain.value = val;
+            }
+
+            setSysGain(val) {
+                this.localSysNode.gain.value = val;
             }
 
             // Also accepts 'name' for mixer display
@@ -557,14 +667,23 @@
             }
 
             getLevels() {
-                const levels = {};
+                const levels = { peers: {}, local: { mic: 0, sys: 0 } };
                 const dataArray = new Uint8Array(32);
+
+                // Peer Levels
                 this.peers.forEach((peer, id) => {
                     peer.analyser.getByteFrequencyData(dataArray);
-                    // Average
                     const avg = dataArray.reduce((a,b)=>a+b, 0) / dataArray.length;
-                    levels[id] = avg;
+                    levels.peers[id] = avg;
                 });
+
+                // Local Levels
+                this.localMicAnalyser.getByteFrequencyData(dataArray);
+                levels.local.mic = dataArray.reduce((a,b)=>a+b, 0) / dataArray.length;
+
+                this.localSysAnalyser.getByteFrequencyData(dataArray);
+                levels.local.sys = dataArray.reduce((a,b)=>a+b, 0) / dataArray.length;
+
                 return levels;
             }
 
@@ -605,19 +724,31 @@
             function loop() {
                 if (els.audioMixer.style.display !== 'none') {
                     const levels = audioManager.getLevels();
-                    for (const [id, level] of Object.entries(levels)) {
+
+                    // Render Peers
+                    for (const [id, level] of Object.entries(levels.peers)) {
                         const canvas = document.getElementById(`meter-${id}`);
-                        if (canvas) {
-                            const ctx = canvas.getContext('2d');
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            ctx.fillStyle = '#4CAF50';
-                            ctx.fillRect(0, 0, (level/255) * canvas.width, canvas.height);
-                        }
+                        drawMeter(canvas, level);
+                    }
+
+                    // Render Local (Host Only)
+                    if (state.mode === 'host') {
+                        drawMeter(document.getElementById('meter-local-mic'), levels.local.mic);
+                        drawMeter(document.getElementById('meter-local-sys'), levels.local.sys);
                     }
                 }
                 requestAnimationFrame(loop);
             }
             loop();
+        }
+
+        function drawMeter(canvas, level) {
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#4CAF50';
+                ctx.fillRect(0, 0, (level/255) * canvas.width, canvas.height);
+            }
         }
 
         // --- Init ---
@@ -693,10 +824,8 @@
                 }
             } catch (e) {
                 console.error('Auth verification failed', e);
-                if (role === 'host') {
-                    showView('unauthorized');
-                    return;
-                }
+                showView('unauthorized');
+                return;
             }
 
             // Fetch ICE configuration
@@ -865,7 +994,17 @@
 
         function callPeer(peerId) {
             if (!state.stream) return;
-            const call = state.peer.call(peerId, state.stream);
+            // Host calls Viewer.
+            // If mixing is enabled, we use the mixed audio track instead of the raw system audio.
+            // But getDisplayMedia stream has video+audio.
+            // We need to construct a new stream: [Video Track from Display, Mixed Audio Track]
+
+            const videoTrack = state.stream.getVideoTracks()[0];
+            const audioTracks = state.mixedStream ? state.mixedStream.getAudioTracks() : state.stream.getAudioTracks();
+
+            const callStream = new MediaStream([videoTrack, ...audioTracks]);
+
+            const call = state.peer.call(peerId, callStream);
             state.calls.push(call);
             call.on('close', () => {
                 state.calls = state.calls.filter(c => c !== call);
@@ -992,6 +1131,7 @@
         function setupHostUI(peerId) {
             // Mixer Logic
             els.hostMixerBtn.style.display = 'inline-block';
+            els.localInputsSection.style.display = 'block'; // Show local inputs for host
 
             const toggleMixer = () => {
                 els.audioMixer.style.display = els.audioMixer.style.display === 'block' ? 'none' : 'block';
@@ -1002,6 +1142,33 @@
 
             els.mixerHeader.onclick = () => {
                 els.audioMixer.classList.toggle('minimized');
+            };
+
+            // Local Mixer Controls
+            els.gainLocalMic.oninput = (e) => audioManager.setMicGain(e.target.value);
+            els.gainLocalSys.oninput = (e) => audioManager.setSysGain(e.target.value);
+
+            els.muteLocalMic.onclick = () => {
+                const isMuted = els.muteLocalMic.classList.toggle('active');
+                audioManager.setMicGain(isMuted ? 0 : els.gainLocalMic.value);
+                // Sync main mute button
+                els.micToggleBtn.classList.toggle('active', isMuted);
+                els.micToggleBtn.textContent = isMuted ? 'Unmute Mic' : 'Mute Mic';
+            };
+
+            els.muteLocalSys.onclick = () => {
+                const isMuted = els.muteLocalSys.classList.toggle('active');
+                audioManager.setSysGain(isMuted ? 0 : els.gainLocalSys.value);
+            };
+
+            // Main Mute Button Logic
+            els.micToggleBtn.style.display = 'inline-block';
+            els.micToggleBtn.onclick = () => {
+                const isMuted = els.micToggleBtn.classList.toggle('active');
+                els.micToggleBtn.textContent = isMuted ? 'Unmute Mic' : 'Mute Mic';
+                // Sync mixer button
+                els.muteLocalMic.classList.toggle('active', isMuted);
+                audioManager.setMicGain(isMuted ? 0 : els.gainLocalMic.value);
             };
 
             // Mode Select
@@ -1048,7 +1215,9 @@
             els.startBtn.addEventListener('click', async () => {
                 try {
                     const fps = parseInt(els.fpsControl.value);
-                    const stream = await navigator.mediaDevices.getDisplayMedia({
+
+                    // 1. Get Screen Stream (with System Audio)
+                    const screenStream = await navigator.mediaDevices.getDisplayMedia({
                         video: {
                             cursor: "always",
                             frameRate: fps
@@ -1056,12 +1225,26 @@
                         audio: true
                     });
 
-                    state.stream = stream;
-                    els.localVideo.srcObject = stream;
+                    // 2. Get Mic Stream
+                    const micStream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: state.audioMode === 'voice',
+                            noiseSuppression: state.audioMode === 'voice',
+                            autoGainControl: state.audioMode === 'voice'
+                        }
+                    });
+                    state.micStream = micStream;
+
+                    // 3. Mix Them
+                    audioManager.setLocalSources(micStream, screenStream);
+                    state.mixedStream = audioManager.getMixedStream();
+
+                    state.stream = screenStream; // Save visual stream reference
+                    els.localVideo.srcObject = screenStream;
                     els.localVideo.play();
                     els.placeholder.style.display = 'none';
 
-                    // Call all APPROVED viewers
+                    // Call all APPROVED viewers (with mixed audio)
                     state.connections.forEach(connObj => {
                         if (connObj.approved) {
                             callPeer(connObj.conn.peer);
@@ -1079,7 +1262,7 @@
                     els.audioMixer.style.display = 'block';
 
                     // Handle stream stop
-                    stream.getVideoTracks()[0].onended = () => {
+                    screenStream.getVideoTracks()[0].onended = () => {
                         stopSharing();
                     };
 
@@ -1122,6 +1305,10 @@
             if (state.stream) {
                 state.stream.getTracks().forEach(track => track.stop());
                 state.stream = null;
+            }
+            if (state.micStream) {
+                state.micStream.getTracks().forEach(track => track.stop());
+                state.micStream = null;
             }
             els.localVideo.srcObject = null;
             els.placeholder.style.display = 'block';
